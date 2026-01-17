@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Ocean Hazard Live Reporting System - Crowdsourced ocean hazard reporting with AI validation">
+    <meta name="theme-color" content="#0f172a">
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="/manifest.json">
+    <link rel="apple-touch-icon" href="/icons/icon-192.png">
+    
+    <title>Ocean Hazard Live Reporting</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Mapbox GL JS -->
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="wave-animation">
+                <div class="wave"></div>
+                <div class="wave"></div>
+                <div class="wave"></div>
+            </div>
+            <h2 class="loading-text">Ocean Hazard Reporting</h2>
+            <p class="loading-subtext">Initializing...</p>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app" class="app-container" style="display: none;">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <div class="logo">
+                        <span class="logo-icon">🌊</span>
+                        <span class="logo-text" data-i18n="app_title">Ocean Hazard Live Reporting</span>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <!-- Language Selector -->
+                    <div class="language-selector">
+                        <select id="language-select" class="language-select">
+                            <option value="en">English</option>
+                            <option value="hi">हिंदी</option>
+                            <option value="kn">ಕನ್ನಡ</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Network Status -->
+                    <div id="network-status" class="network-status online">
+                        <span class="status-dot"></span>
+                        <span class="status-text">Online</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Navigation -->
+        <nav class="bottom-nav">
+            <button class="nav-item active" data-view="dashboard">
+                <span class="nav-icon">📊</span>
+                <span class="nav-label" data-i18n="dashboard">Dashboard</span>
+            </button>
+            <button class="nav-item" data-view="report">
+                <span class="nav-icon">📸</span>
+                <span class="nav-label" data-i18n="report_hazard">Report Hazard</span>
+            </button>
+            <button class="nav-item" data-view="map">
+                <span class="nav-icon">🗺️</span>
+                <span class="nav-label" data-i18n="map">Map</span>
+            </button>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Dashboard View -->
+            <div id="dashboard-view" class="view active">
+                <div class="view-header">
+                    <h1 class="view-title" data-i18n="dashboard">Dashboard</h1>
+                    <button id="refresh-dashboard" class="btn-icon" title="Refresh">
+                        <span>🔄</span>
+                    </button>
+                </div>
+
+                <!-- Statistics Cards -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon verified">✓</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-verified">0</div>
+                            <div class="stat-label" data-i18n="verified_reports">Verified Reports</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon pending">⏳</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-pending">0</div>
+                            <div class="stat-label" data-i18n="pending_reports">Pending Reports</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon total">📋</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-total">0</div>
+                            <div class="stat-label">Total Reports</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- INCOIS Alerts -->
+                <div class="section">
+                    <h2 class="section-title" data-i18n="incois_alerts">INCOIS Alerts</h2>
+                    <div id="incois-alerts-container" class="alerts-container">
+                        <!-- Alerts will be dynamically loaded -->
+                    </div>
+                </div>
+
+                <!-- Recent Reports -->
+                <div class="section">
+                    <h2 class="section-title" data-i18n="verified_reports">Verified Reports</h2>
+                    <div id="posts-container" class="posts-container">
+                        <!-- Posts will be dynamically loaded -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Report View -->
+            <div id="report-view" class="view">
+                <div class="view-header">
+                    <h1 class="view-title" data-i18n="report_hazard">Report Ocean Hazard</h1>
+                </div>
+
+                <form id="report-form" class="report-form">
+                    <!-- Hazard Type -->
+                    <div class="form-group">
+                        <label class="form-label" data-i18n="hazard_type">Hazard Type</label>
+                        <div class="hazard-type-grid">
+                            <label class="hazard-type-card">
+                                <input type="radio" name="hazard_type" value="tsunami" required>
+                                <div class="hazard-type-content">
+                                    <span class="hazard-icon">🌊</span>
+                                    <span class="hazard-name" data-i18n="tsunami">Tsunami</span>
+                                </div>
+                            </label>
+                            <label class="hazard-type-card">
+                                <input type="radio" name="hazard_type" value="cyclone" required>
+                                <div class="hazard-type-content">
+                                    <span class="hazard-icon">🌀</span>
+                                    <span class="hazard-name" data-i18n="cyclone">Cyclone</span>
+                                </div>
+                            </label>
+                            <label class="hazard-type-card">
+                                <input type="radio" name="hazard_type" value="high_tide" required>
+                                <div class="hazard-type-content">
+                                    <span class="hazard-icon">🌊</span>
+                                    <span class="hazard-name" data-i18n="high_tide">High Tide</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Severity -->
+                    <div class="form-group">
+                        <label class="form-label" data-i18n="severity">Severity Level</label>
+                        <div class="severity-buttons">
+                            <label class="severity-btn low">
+                                <input type="radio" name="severity" value="low" required>
+                                <span data-i18n="low">Low</span>
+                            </label>
+                            <label class="severity-btn medium">
+                                <input type="radio" name="severity" value="medium" required>
+                                <span data-i18n="medium">Medium</span>
+                            </label>
+                            <label class="severity-btn high">
+                                <input type="radio" name="severity" value="high" required>
+                                <span data-i18n="high">High</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Image Upload -->
+                    <div class="form-group">
+                        <label class="form-label">Image</label>
+                        <div class="image-upload-area">
+                            <input type="file" id="image-input" accept="image/*" capture="environment" required hidden>
+                            <div id="image-preview" class="image-preview" style="display: none;">
+                                <img id="preview-img" src="" alt="Preview">
+                                <button type="button" id="remove-image" class="btn-remove-image">✕</button>
+                            </div>
+                            <div id="upload-placeholder" class="upload-placeholder">
+                                <span class="upload-icon">📷</span>
+                                <p class="upload-text" data-i18n="capture_image">Capture or Upload Image</p>
+                                <button type="button" id="capture-btn" class="btn-secondary">
+                                    <span data-i18n="capture_image">Capture Image</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div class="form-group">
+                        <label class="form-label" data-i18n="description">Description (Optional)</label>
+                        <textarea id="description" name="description" class="form-textarea" rows="4" 
+                                  placeholder="Describe what you're seeing..."></textarea>
+                    </div>
+
+                    <!-- Location (Auto-detected) -->
+                    <div class="form-group">
+                        <label class="form-label" data-i18n="location">Location</label>
+                        <div class="location-display" id="location-display">
+                            <span class="location-icon">📍</span>
+                            <span class="location-text">Detecting location...</span>
+                        </div>
+                        <input type="hidden" id="latitude" name="latitude">
+                        <input type="hidden" id="longitude" name="longitude">
+                        <input type="hidden" id="location-name" name="location_name">
+                    </div>
+
+                    <!-- Safety Guidelines Button -->
+                    <button type="button" id="view-guidelines-btn" class="btn-guidelines" disabled>
+                        <span data-i18n="safety_guidelines">View Safety Guidelines</span>
+                    </button>
+
+                    <!-- Submit Button -->
+                    <button type="submit" id="submit-btn" class="btn-primary" disabled>
+                        <span data-i18n="submit_report">Submit Report</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Map View -->
+            <div id="map-view" class="view">
+                <div class="view-header">
+                    <h1 class="view-title" data-i18n="map">Live Hazard Map</h1>
+                    <div class="map-controls">
+                        <button id="toggle-heatmap" class="btn-icon" title="Toggle Heatmap">
+                            <span>🔥</span>
+                        </button>
+                    </div>
+                </div>
+                <div id="map-container" class="map-container"></div>
+                <div class="map-legend">
+                    <div class="legend-item">
+                        <span class="legend-marker verified"></span>
+                        <span>Verified Reports</span>
+                    </div>
+                    <div class="legend-item">
+                        <span class="legend-marker incois"></span>
+                        <span>INCOIS Alerts</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modal for Guidelines -->
+    <div id="guidelines-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="guidelines-title" class="modal-title">Safety Guidelines</h2>
+                <button class="modal-close" onclick="closeGuidelinesModal()">✕</button>
+            </div>
+            <div id="guidelines-content" class="modal-body">
+                <!-- Guidelines content will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            });
+        }
+    </script>
+
+    <!-- Scripts -->
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js"></script>
+    <script src="/js/offline.js"></script>
+    <script src="/js/translation.js"></script>
+    <script src="/js/map.js"></script>
+    <script src="/js/app.js"></script>
+</body>
+</html>
