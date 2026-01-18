@@ -54,9 +54,19 @@
                     </div>
                 </div>
                 <div class="header-right">
+                    <!-- SOS Emergency Button -->
+                    <a href="/sos.html" class="btn-text-small"
+                        style="background: var(--error); color: white; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-weight: bold; margin-right: 15px;">
+                        🆘 SOS
+                    </a>
+
                     <!-- Admin Link -->
                     <a href="/admin.html" class="admin-link" title="Admin Access"
                         style="text-decoration: none; font-size: 1.2rem; margin-right: 15px;">🔒</a>
+
+                    <!-- Rescue Team Link -->
+                    <a href="/rescue.html" class="admin-link" title="Rescue Team Login"
+                        style="text-decoration: none; font-size: 1.2rem; margin-right: 15px;">🚁</a>
 
                     <!-- Language Selector -->
                     <div class="language-selector">
@@ -72,6 +82,12 @@
                         <span class="status-dot"></span>
                         <span class="status-text">Online</span>
                     </div>
+
+                    <!-- Sync Button (shows when pending reports exist) -->
+                    <button id="sync-btn" class="btn-text-small" onclick="OfflineManager.syncPendingReports()"
+                        style="display: none; margin-left: 10px;">
+                        🔄 Sync (<span id="pending-count">0</span>)
+                    </button>
                 </div>
             </div>
         </header>
@@ -128,6 +144,15 @@
                     </div>
                 </div>
 
+                <!-- SOS Alerts (High Priority) -->
+                <div id="dashboard-sos-section" class="section" style="display: none;">
+                    <h2 class="section-title" style="color: var(--error);" data-i18n="active_rescue">🚨 Active Rescue
+                        Operations</h2>
+                    <div id="dashboard-sos-container" class="posts-container">
+                        <!-- SOS Reports will be loaded here -->
+                    </div>
+                </div>
+
                 <!-- INCOIS Alerts -->
                 <div class="section">
                     <h2 class="section-title" data-i18n="incois_alerts">INCOIS Alerts</h2>
@@ -138,7 +163,7 @@
 
                 <!-- Recent Reports -->
                 <div class="section">
-                    <h2 class="section-title" data-i18n="verified_reports">Verified Reports</h2>
+                    <h2 class="section-title" data-i18n="verified_reports">Reports</h2>
                     <div id="posts-container" class="posts-container">
                         <!-- Posts will be dynamically loaded -->
                     </div>
@@ -311,7 +336,7 @@
     <!-- Scripts -->
     <script src="/js/config.js"></script>
     <script src="/js/api.js"></script>
-    <script src="/js/offline.js"></script>
+    <script src="/js/offline.js?v=2.1"></script>
     <script src="/js/translation.js?v=1.1"></script>
     <script src="/js/map.js?v=1.1"></script>
     <script src="/js/app.js?v=1.1"></script>

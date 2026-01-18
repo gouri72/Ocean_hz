@@ -99,6 +99,9 @@ const App = {
                 if (stats.incois_alerts) {
                     this.renderIncoisAlerts(stats.incois_alerts);
                 }
+
+                // Load SOS Reports
+                this.loadSOSReports();
             }
         } catch (error) {
             console.warn('Could not load dashboard stats', error);
@@ -170,6 +173,137 @@ const App = {
             `;
             container.appendChild(card);
         });
+    },
+
+    async loadSOSReports() {
+        try {
+            const container = document.getElementById('dashboard-sos-container');
+            const section = document.getElementById('dashboard-sos-section');
+            if (!container || !section) return;
+
+            const response = await fetch(`${API_CONFIG.BASE_URL}/sos/reports?active_only=true`);
+            const reports = await response.json();
+
+            // Hardcoded Translations
+            const currentLang = document.getElementById('language-select').value || 'en';
+
+            const TR = {
+                en: {
+                    sos_alert: '🆘 SOS ALERT',
+                    team_deployed: '🚁 RESCUE TEAM DEPLOYED',
+                    status_prefix: 'Status:',
+                    on_way: 'is on the way/on scene.',
+                    reported: 'Reported',
+                    location: 'Location:',
+                    types: {
+                        stranded: 'STRANDED',
+                        drowning: 'DROWNING',
+                        boat_accident: 'BOAT ACCIDENT',
+                        medical: 'MEDICAL EMERGENCY'
+                    }
+                },
+                hi: {
+                    sos_alert: '🆘 एस.ओ.एस अलर्ट',
+                    team_deployed: '🚁 बचाव दल तैनात',
+                    status_prefix: 'स्थिति:',
+                    on_way: 'रास्ते में है / घटनास्थल पर है।',
+                    reported: 'रिपोर्ट किया गया',
+                    location: 'स्थान:',
+                    types: {
+                        stranded: 'फंसे हुए',
+                        drowning: 'डूबना',
+                        boat_accident: 'नाव दुर्घटना',
+                        medical: 'चिकित्सा आपात स्थिति'
+                    }
+                },
+                kn: {
+                    sos_alert: '🆘 SOS ಎಚ್ಚರಿಕೆ',
+                    team_deployed: '🚁 ರಕ್ಷಣಾ ತಂಡ ನಿಯೋಜಿಸಲಾಗಿದೆ',
+                    status_prefix: 'ಸ್ಥಿತಿ:',
+                    on_way: 'ಮಾರ್ಗದಲ್ಲಿದ್ದಾರೆ / ಸ್ಥಳದಲ್ಲಿದ್ದಾರೆ.',
+                    reported: 'ವರದಿ ಮಾಡಲಾಗಿದೆ',
+                    location: 'ಸ್ಥಳ:',
+                    types: {
+                        stranded: 'ಸಿಕ್ಕಿಹಾಕಿಕೊಂಡಿದ್ದಾರೆ',
+                        drowning: 'ಮುಳುಗುತ್ತಿದ್ದಾರೆ',
+                        boat_accident: 'ದೋಣಿ ಅಪಘಾತ',
+                        medical: 'ವೈದ್ಯಕೀಯ ತುರ್ತು'
+                    }
+                }
+            };
+
+            const t = TR[currentLang] || TR['en'];
+
+            if (reports.length > 0) {
+                // Update header translation dynamically if needed
+                const header = section.querySelector('h2.section-title');
+                if (header) {
+                    const TR_HEADER = {
+                        en: '🚨 Active Rescue Operations',
+                        hi: '🚨 सक्रिय बचाव अभियान',
+                        kn: '🚨 ಸಕ್ರಿಯ ರಕ್ಷಣಾ ಕಾರ್ಯಾಚರಣೆಗಳು'
+                    };
+                    header.textContent = TR_HEADER[currentLang] || TR_HEADER['en'];
+                }
+
+                section.style.display = 'block';
+                container.innerHTML = '';
+
+                reports.forEach(sos => {
+                    const card = document.createElement('div');
+                    card.className = 'post-card';
+                    // Styling for emergency card
+                    card.style.borderLeft = sos.deployed ? '5px solid var(--success)' : '5px solid var(--error)';
+                    card.style.background = sos.deployed ? 'rgba(0, 255, 0, 0.05)' : 'rgba(255, 0, 0, 0.05)';
+
+                    const timeAgo = this.getTimeAgo(new Date(sos.timestamp + 'Z'));
+
+                    // Translate Type
+                    const rawType = sos.emergency_type.toLowerCase();
+                    const translatedType = t.types[rawType] || sos.emergency_type.toUpperCase().replace('_', ' ');
+
+                    card.innerHTML = `
+                        <div class="post-content" style="width:100%">
+                            <div class="post-header">
+                                <span class="post-type" style="color: var(--error)">
+                                    🚨 ${translatedType}
+                                </span>
+                                <span class="post-verified" style="background: ${sos.deployed ? 'var(--success)' : 'var(--error)'}; color: white; border:none;">
+                                    ${sos.deployed ? t.team_deployed : t.sos_alert}
+                                </span>
+                            </div>
+                            
+                            <p class="post-description">
+                                <strong>${t.location}</strong> ${sos.location_name || 'Coordinates provided'} <br>
+                                ${sos.description ? `<br><i>"${sos.description}"</i>` : ''}
+                            </p>
+
+                            ${sos.deployed ? `
+                                <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.1); border-radius:6px; font-size: 0.9rem;">
+                                    <strong>${t.status_prefix}</strong> ${sos.deployed_by} ${t.on_way}<br>
+                                    <small>${t.team_deployed} ${timeAgo}</small>
+                                </div>
+                            ` : `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">${t.reported} ${timeAgo}</div>`}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } else {
+                section.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Error loading SOS reports:', error);
+        }
+    },
+
+    getTimeAgo(date) {
+        const seconds = Math.floor((new Date() - date) / 1000);
+        if (seconds < 60) return 'Just now';
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes}m ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours}h ago`;
+        return `${Math.floor(hours / 24)}d ago`;
     },
 
     renderIncoisAlerts(alerts) {

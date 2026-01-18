@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rescue Team Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .rescue-container {
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .rescue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a6f);
+            border-radius: 12px;
+            color: white;
+        }
+
+        .sos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+
+        .sos-card {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 20px;
+            border: 2px solid var(--border);
+            position: relative;
+        }
+
+        .sos-card.deployed {
+            border-color: var(--success);
+            background: rgba(0, 255, 0, 0.05);
+        }
+
+        .sos-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .sos-badge.active {
+            background: var(--error);
+            color: white;
+        }
+
+        .sos-badge.deployed {
+            background: var(--success);
+            color: white;
+        }
+
+        .emergency-icon {
+            font-size: 3rem;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .deploy-btn {
+            width: 100%;
+            padding: 12px;
+            background: var(--success);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+
+        .deploy-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .resolve-btn {
+            width: 100%;
+            padding: 10px;
+            background: var(--text-muted);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Login Overlay -->
+    <div id="login-overlay"
+        style="position: fixed; inset: 0; background: var(--background); z-index: 1000; display: flex; align-items: center; justify-content: center;">
+        <div class="card" style="width: 100%; max-width: 400px; padding: 30px;">
+            <div style="text-align: center; margin-bottom: 20px;">
+                <span style="font-size: 3rem;">🚁</span>
+                <h2 style="margin-top: 10px;">Rescue Team Access</h2>
+                <p style="color: var(--text-muted);">Authorized Personnel Only</p>
+            </div>
+
+            <form id="login-form" onsubmit="RescueApp.handleLogin(event)">
+                <div style="margin-bottom: 15px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Team ID</label>
+                    <input type="text" id="team-id" class="form-input" required
+                        style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-color);">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 5px; font-weight: 500;">Password</label>
+                    <input type="password" id="team-pass" class="form-input" required
+                        style="width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface-2); color: var(--text-color);">
+                </div>
+
+                <button type="submit" class="btn-primary"
+                    style="width: 100%; padding: 12px; border-radius: 6px; background: var(--primary); color: white; border: none; font-weight: bold; cursor: pointer;">Login</button>
+            </form>
+
+            <div
+                style="margin-top: 20px; padding: 15px; background: rgba(255,165,0,0.1); border: 1px dashed var(--warning); border-radius: 6px; font-size: 0.9rem; text-align: center;">
+                <p style="color: var(--warning); margin-bottom: 5px;"><strong>Demo Credentials:</strong></p>
+                <code style="background: rgba(0,0,0,0.2); padding: 2px 5px; border-radius: 4px;">rescue</code> / <code
+                    style="background: rgba(0,0,0,0.2); padding: 2px 5px; border-radius: 4px;">rescue123</code>
+            </div>
+        </div>
+    </div>
+
+    <div class="rescue-container" id="rescue-content" style="filter: blur(5px); pointer-events: none;">
+        <header class="rescue-header">
+            <div>
+                <h1 style="margin: 0;">🚁 Rescue Team Dashboard</h1>
+                <p style="margin: 5px 0 0; opacity: 0.9;">Active SOS Emergency Requests</p>
+            </div>
+            <a href="/" class="btn-text-small">Back to Home</a>
+        </header>
+
+        <div id="sos-container" class="sos-grid">
+            <p style="text-align: center; color: var(--text-muted);">Loading SOS requests...</p>
+        </div>
+    </div>
+
+    <script src="/js/config.js"></script>
+    <script>
+        const RescueApp = {
+            teamMember: null,
+
+            async init() {
+                if (sessionStorage.getItem('rescue_logged_in') === 'true') {
+                    this.teamMember = sessionStorage.getItem('team_member');
+                    this.showDashboard();
+                }
+            },
+
+            handleLogin(e) {
+                e.preventDefault();
+                const teamId = document.getElementById('team-id').value.toLowerCase().trim();
+                const pass = document.getElementById('team-pass').value;
+
+                if (teamId === 'rescue' && pass === 'rescue123') {
+                    sessionStorage.setItem('rescue_logged_in', 'true');
+                    sessionStorage.setItem('team_member', teamId);
+                    this.teamMember = teamId;
+                    this.showDashboard();
+                } else {
+                    alert('Invalid Credentials');
+                }
+            },
+
+            async showDashboard() {
+                document.getElementById('login-overlay').style.display = 'none';
+                const content = document.getElementById('rescue-content');
+                content.style.filter = 'none';
+                content.style.pointerEvents = 'all';
+
+                await this.loadSOSReports();
+                setInterval(() => this.loadSOSReports(), 30000); // Refresh every 30s
+            },
+
+            async loadSOSReports() {
+                try {
+                    const response = await fetch(`${API_CONFIG.BASE_URL}/sos/reports?active_only=true`);
+                    const reports = await response.json();
+                    this.renderSOSReports(reports);
+                } catch (error) {
+                    console.error('Error loading SOS reports:', error);
+                }
+            },
+
+            renderSOSReports(reports) {
+                const container = document.getElementById('sos-container');
+                container.innerHTML = '';
+
+                if (reports.length === 0) {
+                    container.innerHTML = '<div class="card" style="grid-column: 1/-1; text-align: center; padding: 40px;"><p style="color: var(--text-muted);">✅ No active SOS requests</p></div>';
+                    return;
+                }
+
+                reports.forEach(sos => {
+                    const card = document.createElement('div');
+                    card.className = `sos-card ${sos.deployed ? 'deployed' : ''}`;
+
+                    const emergencyIcons = {
+                        stranded: '🚢',
+                        drowning: '🌊',
+                        boat_accident: '⚓',
+                        medical: '🏥'
+                    };
+
+                    const timeAgo = this.getTimeAgo(new Date(sos.timestamp + 'Z'));
+
+                    card.innerHTML = `
+                        <div class="sos-badge ${sos.deployed ? 'deployed' : 'active'}">
+                            ${sos.deployed ? '✅ DEPLOYED' : '🆘 ACTIVE'}
+                        </div>
+                        
+                        <div class="emergency-icon">${emergencyIcons[sos.emergency_type] || '🆘'}</div>
+                        
+                        <h3 style="text-align: center; margin: 0 0 15px; text-transform: capitalize;">
+                            ${sos.emergency_type.replace('_', ' ')}
+                        </h3>
+
+                        <div style="margin-bottom: 10px;">
+                            <strong>📍 Location:</strong><br>
+                            <span style="font-size: 0.9rem;">${sos.location_name || `${sos.latitude.toFixed(4)}, ${sos.longitude.toFixed(4)}`}</span>
+                        </div>
+
+                        ${sos.contact_number ? `
+                            <div style="margin-bottom: 10px;">
+                                <strong>📞 Contact:</strong> ${sos.contact_number}
+                            </div>
+                        ` : ''}
+
+                        ${sos.description ? `
+                            <div style="margin-bottom: 10px;">
+                                <strong>Details:</strong><br>
+                                <span style="font-size: 0.9rem;">${sos.description}</span>
+                            </div>
+                        ` : ''}
+
+                        <div style="margin-bottom: 10px; font-size: 0.85rem; color: var(--text-muted);">
+                            🕒 ${timeAgo}
+                        </div>
+
+                        ${sos.deployed ? `
+                            <div style="padding: 10px; background: rgba(0,255,0,0.1); border-radius: 6px; margin-bottom: 10px;">
+                                <strong>Deployed by:</strong> ${sos.deployed_by}<br>
+                                <small>${new Date(sos.deployed_at + 'Z').toLocaleString()}</small>
+                                ${sos.rescue_notes ? `<br><small>${sos.rescue_notes}</small>` : ''}
+                            </div>
+                            <button onclick="RescueApp.resolveSOS(${sos.id})" class="resolve-btn">Mark as Resolved</button>
+                        ` : `
+                            <button onclick="RescueApp.deployToSOS(${sos.id})" class="deploy-btn">
+                                🚁 DEPLOY TEAM
+                            </button>
+                        `}
+
+                        ${sos.image_path ? `
+                            <div style="margin-top: 10px;">
+                                <img src="/${sos.image_path}" style="width: 100%; border-radius: 8px; max-height: 200px; object-fit: cover;">
+                            </div>
+                        ` : ''}
+                    `;
+
+                    container.appendChild(card);
+                });
+            },
+
+            async deployToSOS(sosId) {
+                const notes = prompt('Add deployment notes (optional):');
+
+                try {
+                    const response = await fetch(`${API_CONFIG.BASE_URL}/sos/${sosId}/deploy`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            deployed_by: this.teamMember,
+                            rescue_notes: notes
+                        })
+                    });
+
+                    if (response.ok) {
+                        alert('✅ Team deployed successfully!');
+                        this.loadSOSReports();
+                    }
+                } catch (error) {
+                    console.error('Deploy error:', error);
+                    alert('Failed to deploy');
+                }
+            },
+
+            async resolveSOS(sosId) {
+                if (!confirm('Mark this SOS as resolved?')) return;
+
+                try {
+                    const response = await fetch(`${API_CONFIG.BASE_URL}/sos/${sosId}/resolve`, {
+                        method: 'PUT'
+                    });
+
+                    if (response.ok) {
+                        alert('✅ SOS marked as resolved');
+                        this.loadSOSReports();
+                    }
+                } catch (error) {
+                    console.error('Resolve error:', error);
+                }
+            },
+
+            getTimeAgo(date) {
+                const seconds = Math.floor((new Date() - date) / 1000);
+                if (seconds < 60) return `${seconds}s ago`;
+                const minutes = Math.floor(seconds / 60);
+                if (minutes < 60) return `${minutes}m ago`;
+                const hours = Math.floor(minutes / 60);
+                if (hours < 24) return `${hours}h ago`;
+                return `${Math.floor(hours / 24)}d ago`;
+            }
+        };
+
+        window.RescueApp = RescueApp;
+        document.addEventListener('DOMContentLoaded', () => RescueApp.init());
+    </script>
+</body>
+
+</html>

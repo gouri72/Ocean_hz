@@ -32,9 +32,25 @@ const AdminApp = {
             content.style.pointerEvents = 'all';
         }
 
+        // Translation Support for Admin (Basic)
+        if (window.TranslationManager) {
+            const currentLang = localStorage.getItem('app_language') || 'en';
+            if (currentLang !== 'en') {
+                const header = document.querySelector('h2.section-title[style*="var(--error)"]');
+                if (header) {
+                    const TR = {
+                        hi: '🚨 सक्रिय बचाव अभियान',
+                        kn: '🚨 ಸಕ್ರಿಯ ರಕ್ಷಣಾ ಕಾರ್ಯಾಚರಣೆಗಳು'
+                    };
+                    if (TR[currentLang]) header.textContent = TR[currentLang];
+                }
+            }
+        }
+
         // Load Data
         await this.loadPendingPosts();
         await this.loadSensorData();
+        await this.loadSOSReports();
     },
 
     async loadPendingPosts() {
@@ -204,6 +220,64 @@ const AdminApp = {
 
         } catch (error) {
             console.error('Error loading sensor data:', error);
+        }
+    },
+
+    async loadSOSReports() {
+        try {
+            const container = document.getElementById('sos-container');
+            if (!container) return;
+
+            const response = await fetch(`${API_CONFIG.BASE_URL}/sos/reports?active_only=true`);
+            const reports = await response.json();
+
+            container.innerHTML = '';
+
+            if (reports.length === 0) {
+                container.innerHTML = '<div class="card"><p style="text-align:center; color:var(--text-muted); padding:10px;">No active SOS alerts</p></div>';
+                return;
+            }
+
+            reports.forEach(sos => {
+                const card = document.createElement('div');
+                card.className = 'card post-card';
+                card.style.borderColor = sos.deployed ? 'var(--success)' : 'var(--error)';
+                card.style.marginBottom = '15px';
+
+                if (sos.deployed) {
+                    card.style.background = 'rgba(0, 255, 0, 0.05)';
+                } else {
+                    card.style.background = 'rgba(255, 0, 0, 0.05)';
+                }
+
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h3 style="margin:0; color: ${sos.deployed ? 'var(--success)' : 'var(--error)'}">
+                            ${sos.deployed ? '🚁 RECOVERY IN PROGRESS' : '🚨 SOS ALERT'}
+                        </h3>
+                        <span style="font-size:0.8rem;">${new Date(sos.timestamp + 'Z').toLocaleString()}</span>
+                    </div>
+                    
+                    <div style="margin-bottom: 10px;">
+                        <strong>Type:</strong> ${sos.emergency_type.toUpperCase()} <br>
+                        <strong>Location:</strong> ${sos.location_name || `${sos.latitude}, ${sos.longitude}`} <br>
+                        <strong>Contact:</strong> ${sos.contact_number || 'N/A'}
+                    </div>
+
+                    ${sos.description ? `<p style="font-style:italic">"${sos.description}"</p>` : ''}
+
+                    ${sos.deployed ? `
+                        <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:4px;">
+                            <strong>Team Deployed:</strong> ${sos.deployed_by} <br>
+                            <small>Notes: ${sos.rescue_notes || 'None'}</small>
+                        </div>
+                    ` : '<div style="color:var(--error); font-weight:bold;">⚠️ Waiting for Rescue Team Deployment</div>'}
+                `;
+                container.appendChild(card);
+            });
+
+        } catch (error) {
+            console.error('Error loading SOS reports:', error);
         }
     }
 };
