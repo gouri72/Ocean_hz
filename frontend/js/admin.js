@@ -86,11 +86,18 @@ const AdminApp = {
             card.style.marginBottom = '20px';
 
             const baseUrl = API_CONFIG.BASE_URL.replace('/api', '');
+
+            // Helper to sanitize path (replace backslahes with forward slashes for URLs)
+            const sanitize = (path) => path ? path.replace(/\\/g, '/') : '';
+
             const imageUrl = post.watermarked_image_path
-                ? `${baseUrl}/${post.watermarked_image_path}`
-                : 'https://placehold.co/600x400?text=No+Image';
+                ? `${baseUrl}/${sanitize(post.watermarked_image_path)}`
+                : (post.image_path ? `${baseUrl}/${sanitize(post.image_path)}` : 'https://placehold.co/600x400?text=No+Image');
 
             const hazardName = post.hazard_type.replace(/_/g, ' ').toUpperCase();
+
+            // Ensure timestamp is treated as UTC
+            const timeStr = new Date(post.timestamp.endsWith('Z') ? post.timestamp : post.timestamp + 'Z').toLocaleString();
 
             card.innerHTML = `
                 <div style="display:flex; gap: 20px; flex-wrap: wrap;">
@@ -105,7 +112,7 @@ const AdminApp = {
                             <strong>📍 Location:</strong> ${post.location_name || `${post.latitude.toFixed(4)}, ${post.longitude.toFixed(4)}`}
                         </p>
                         <p style="font-size:0.8rem; color: var(--text-muted);">
-                            <strong>🕒 Time:</strong> ${new Date(post.timestamp).toLocaleString()}
+                            <strong>🕒 Time:</strong> ${timeStr}
                         </p>
                         
                         <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 0.9rem; border: 1px solid var(--border);">

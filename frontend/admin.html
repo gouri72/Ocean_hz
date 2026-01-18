@@ -199,35 +199,32 @@
                         <!-- Active alerts will appear here -->
                     </div>
                 </div>
+
+                <div class="card">
+                    <h3>Live Sensor Status</h3>
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        <table id="sensor-table">
+                            <thead>
+                                <tr>
+                                    <th>Sensor ID/Loc</th>
+                                    <th>Type</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Sensor data loaded here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script src="/js/config.js?v=1.2"></script>
-    <script src="/js/admin.js?v=1.2"></script>
-    <div class="card">
-        <h3>Live Sensor Status</h3>
-        <div style="max-height: 400px; overflow-y: auto;">
-            <table id="sensor-table">
-                <thead>
-                    <tr>
-                        <th>Sensor ID/Loc</th>
-                        <th>Type</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Sensor data loaded here -->
-                </tbody>
-            </table>
-        </div>
-    </div>
-    </div>
-    </div>
-    </div>
-
-    <script src="/js/config.js"></script>
-    <script src="/js/admin.js"></script>
+    <!-- Scripts with Cache Busting -->
+    <script src="/js/config.js?v=3.2"></script>
+    <script src="/js/api.js?v=3.2"></script>
+    <script src="/js/admin.js?v=3.2"></script>
 </body>
 
 </html>

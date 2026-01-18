@@ -548,9 +548,14 @@ async def sync_offline_post(
         ts_str = sync_data.timestamp.replace('Z', '+00:00')
         timestamp = datetime.fromisoformat(ts_str)
         filename = f"{sync_data.user_id}_{int(timestamp.timestamp())}_offline.jpg"
-        image_path = os.path.join("uploads", filename)
         
-        with open(image_path, "wb") as f:
+        # Ensure path uses forward slashes for DB consistency
+        image_path = f"uploads/{filename}" 
+        
+        # Use os.path.join for filesystem operations
+        fs_image_path = os.path.join("uploads", filename)
+        
+        with open(fs_image_path, "wb") as f:
             f.write(image_data)
         
         # Create post (similar to create_hazard_post but from offline data)
@@ -562,7 +567,7 @@ async def sync_offline_post(
             latitude=sync_data.latitude,
             longitude=sync_data.longitude,
             location_name=sync_data.location_name,
-            image_path=image_path,
+            image_path=image_path, # URL friendly path
             timestamp=timestamp,
             synced=True  # Now synced
         )
