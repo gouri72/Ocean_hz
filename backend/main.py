@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
+from pydantic import BaseModel
 import os
 import json
 import shutil
@@ -700,6 +701,61 @@ async def get_safety_guidelines(hazard_type: str, language: str = "en"):
             logger.error(f"Guidelines translation error: {str(e)}")
     
     return guideline_data
+
+
+# ==================== ADMIN ENDPOINTS ====================
+
+class PostStatusUpdate(BaseModel):
+    verified: bool
+    rejected: bool
+    rejection_reason: Optional[str] = None
+
+@app.put("/api/admin/posts/{post_id}/status", response_model=HazardPostResponse)
+async def update_post_status(post_id: int, status: PostStatusUpdate, db: Session = Depends(get_db)):
+    """Update post status (verify/reject)"""
+    post = db.query(HazardPost).filter(HazardPost.id == post_id).first()
+    
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    
+    post.verified = status.verified
+    post.rejected = status.rejected
+    post.rejection_reason = status.rejection_reason
+    
+    db.commit()
+    db.refresh(post)
+    
+    return post
+
+@app.get("/api/admin/historical-data")
+async def get_historical_data(db: Session = Depends(get_db)):
+    """Get status for admin analysis (Sensors & Stats)"""
+    
+    # Get post stats
+    total_posts = db.query(HazardPost).count()
+    verified_posts = db.query(HazardPost).filter(HazardPost.verified == True).count()
+    rejected_posts = db.query(HazardPost).filter(HazardPost.rejected == True).count()
+    
+    # Realistic Sensor Data - Active High Wave Alert on Kerala/Karnataka Coast
+    sensors = [
+        {"id": "WR-KOC-01", "location": "Kochi Coast, Kerala", "type": "Wave Rider Buoy", "status": "Operational", "reading": "Wave Height: 3.8m ⚠️"},
+        {"id": "TG-MNG-02", "location": "Mangalore, Karnataka", "type": "Tide Gauge", "status": "Operational", "reading": "High Tide: +2.4m"},
+        {"id": "DB-KAN-03", "location": "Kannur, Kerala", "type": "Data Buoy", "status": "Operational", "reading": "Swell: 4.2m, Wind: 45 km/h"},
+        {"id": "TB-KAR-04", "location": "Karwar, Karnataka", "type": "Tsunami Buoy", "status": "Operational", "reading": "Normal - 0.3m"},
+        {"id": "WR-TRV-05", "location": "Trivandrum Coast", "type": "Wave Rider", "status": "Operational", "reading": "Wave Height: 3.5m ⚠️"},
+        {"id": "TG-GOA-06", "location": "Goa Harbor", "type": "Tide Gauge", "status": "Operational", "reading": "Tide: +1.8m"},
+        {"id": "DB-CHN-07", "location": "Chennai (East Coast)", "type": "Data Buoy", "status": "Operational", "reading": "Normal - 1.2m waves"}
+    ]
+    
+    return {
+        "sensor_data": sensors,
+        "stats": {
+            "total_reports": total_posts,
+            "verified": verified_posts,
+            "rejected": rejected_posts,
+            "accuracy_rate": (verified_posts / total_posts * 100) if total_posts > 0 else 0
+        }
+    }
 
 
 if __name__ == "__main__":
