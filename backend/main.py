@@ -770,13 +770,14 @@ async def get_historical_data(db: Session = Depends(get_db)):
     
     # Realistic Sensor Data - Active High Wave Alert on Kerala/Karnataka Coast
     sensors = [
-        {"id": "WR-KOC-01", "location": "Kochi Coast, Kerala", "type": "Wave Rider Buoy", "status": "Operational", "reading": "Wave Height: 3.8m ⚠️"},
+        {"id": "WR-KOC-01", "location": "Kochi Coast, Kerala", "type": "Wave Rider Buoy", "status": "Operational", "reading": "Wave Height: 3.2m ⚠️"},
         {"id": "TG-MNG-02", "location": "Mangalore, Karnataka", "type": "Tide Gauge", "status": "Operational", "reading": "High Tide: +2.4m"},
-        {"id": "DB-KAN-03", "location": "Kannur, Kerala", "type": "Data Buoy", "status": "Operational", "reading": "Swell: 4.2m, Wind: 45 km/h"},
+        {"id": "DB-KAN-03", "location": "Kannur, Kerala", "type": "Data Buoy", "status": "Operational", "reading": "Swell: 3.5m"},
         {"id": "TB-KAR-04", "location": "Karwar, Karnataka", "type": "Tsunami Buoy", "status": "Operational", "reading": "Normal - 0.3m"},
         {"id": "WR-TRV-05", "location": "Trivandrum Coast", "type": "Wave Rider", "status": "Operational", "reading": "Wave Height: 3.5m ⚠️"},
         {"id": "TG-GOA-06", "location": "Goa Harbor", "type": "Tide Gauge", "status": "Operational", "reading": "Tide: +1.8m"},
-        {"id": "DB-CHN-07", "location": "Chennai (East Coast)", "type": "Data Buoy", "status": "Operational", "reading": "Normal - 1.2m waves"}
+        {"id": "DB-CHN-07", "location": "Chennai (East Coast)", "type": "Data Buoy", "status": "Operational", "reading": "CRITICAL: Wave Height 8.5m 🚨"},
+        {"id": "TB-CHN-08", "location": "Chennai Marina", "type": "Tsunami Buoy", "status": "ALERT", "reading": "TSUNAMI CONFIRMED 🚨"}
     ]
     
     return {

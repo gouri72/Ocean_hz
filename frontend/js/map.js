@@ -49,6 +49,18 @@ const MapManager = {
         }
     },
 
+    setupControls() {
+        this.map.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+        const heatmapBtn = document.getElementById('toggle-heatmap');
+        if (heatmapBtn) {
+            heatmapBtn.addEventListener('click', () => {
+                // Future implementation: toggle heatmap layer
+                alert('Heatmap toggle: Feature enabled for next release');
+            });
+        }
+    },
+
     async loadMapData() {
         if (!this.map) return;
 
@@ -62,8 +74,10 @@ const MapManager = {
                 bounds.getWest()
             );
 
-            this.updateMarkers(data.points);
-            // Heatmap layers would go here in full version
+            // Access correct field 'markers' instead of 'points'
+            this.updateMarkers(data.markers);
+
+            // Heatmap logic would use data.heatmap_data
 
         } catch (error) {
             console.error('Failed to load map data:', error);
@@ -90,7 +104,7 @@ const MapManager = {
             // Create popup
             const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
                 <div class="map-popup">
-                    <h3>${HAZARD_ICONS[point.type] || '⚠️'} ${point.type}</h3>
+                    <h3>${HAZARD_ICONS[point.hazard_type] || '⚠️'} ${point.hazard_type.replace('_', ' ').toUpperCase()}</h3>
                     <p>${point.description || 'No description'}</p>
                     <small>Confidence: ${(point.confidence * 100).toFixed(0)}%</small>
                 </div>

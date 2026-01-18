@@ -315,7 +315,52 @@ const App = {
     },
 
     renderIncoisAlerts(alerts) {
-        // ... (existing code) ...
+        const container = document.getElementById('incois-alerts-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (!alerts || alerts.length === 0) {
+            container.innerHTML = '<p class="text-center" style="color:var(--text-muted); padding: 10px;">No Active INCOIS Alerts.</p>';
+            return;
+        }
+
+        alerts.forEach(alert => {
+            const alertType = alert.alert_type || 'hazard';
+            const icon = HAZARD_ICONS[alertType] || '⚠️';
+            const severityClass = alert.severity || 'medium';
+            const borderColor = severityClass === 'high' ? 'var(--error)' : (severityClass === 'medium' ? 'var(--warning)' : 'var(--success)');
+
+            const alertCard = document.createElement('div');
+            alertCard.className = 'incois-alert-card';
+            // Add some inline styles for visibility since we might rely on generic CSS
+            alertCard.style.cssText = `
+                background: rgba(255, 255, 255, 0.05);
+                border-left: 5px solid ${borderColor};
+                padding: 15px;
+                margin-bottom: 15px;
+                border-radius: 8px;
+             `;
+
+            const timeStr = new Date(alert.issued_at + 'Z').toLocaleString();
+
+            alertCard.innerHTML = `
+                <div style="display:flex; justify-content:space-between; align-items:start;">
+                    <h3 style="margin:0 0 10px 0; color: ${borderColor}">
+                        ${icon} ${alert.title}
+                    </h3>
+                    <span style="background:${borderColor}; color:white; padding:2px 8px; border-radius:4px; font-size:0.75rem;">${alert.source}</span>
+                </div>
+                <p style="margin-bottom:10px; font-weight:500;">
+                    ${alert.description}
+                </p>
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    <strong>Area:</strong> ${alert.affected_area} | 
+                    <strong>Issued:</strong> ${timeStr}
+                </div>
+             `;
+            container.appendChild(alertCard);
+        });
     },
 
     async loadSafetyAlerts() {
