@@ -36,7 +36,20 @@ const TranslationManager = {
             retry_gps: "Retry GPS",
             safety_guidelines: "View Safety Guidelines",
             submit_report: "Submit Report",
-            active_rescue: "🚨 Active Rescue Operations"
+            active_rescue: "🚨 Active Rescue Operations",
+            // Post Status & Time
+            verified: "Verified",
+            pending_verification: "Pending Verification",
+            active_hazard: "ACTIVE HAZARD",
+            label_hazard: "Hazard:",
+            label_issued: "Issued:",
+            just_now: "Just now",
+            min_ago: "m ago",
+            hr_ago: "h ago",
+            day_ago: "d ago",
+            // Extended Hazards
+            rough_sea: "Rough Sea",
+            high_wave: "High Wave"
         },
         hi: {
             app_title: "महासागर आपदा लाइव रिपोर्टिंग",
@@ -69,7 +82,20 @@ const TranslationManager = {
             retry_gps: "जीपीएस पुनः प्रयास करें",
             safety_guidelines: "सुरक्षा दिशानिर्देश देखें",
             submit_report: "रिपोर्ट सबमिट करें",
-            active_rescue: "🚨 सक्रिय बचाव अभियान"
+            active_rescue: "🚨 सक्रिय बचाव अभियान",
+            // Post Status & Time
+            verified: "सत्यापित",
+            pending_verification: "सत्यापन लंबित",
+            active_hazard: "सक्रिय खतरा",
+            label_hazard: "खतरा:",
+            label_issued: "जारी किया गया:",
+            just_now: "अभी",
+            min_ago: " मिनट पहले",
+            hr_ago: " घंटे पहले",
+            day_ago: " दिन पहले",
+            // Extended Hazards
+            rough_sea: "खराब मौसम",
+            high_wave: "ऊंची लहरें"
         },
         kn: {
             app_title: "ಸಾಗರ ಅವಘಡ ನೇರ ವರದಿ",
@@ -102,7 +128,20 @@ const TranslationManager = {
             retry_gps: "ಜಿಪಿಎಸ್ ಮರುಪ್ರಯತ್ನಿಸಿ",
             safety_guidelines: "ಸುರಕ್ಷತಾ ಮಾರ್ಗಸೂಚಿಗಳನ್ನು ವೀಕ್ಷಿಸಿ",
             submit_report: "ವರದಿಯನ್ನು ಸಲ್ಲಿಸಿ",
-            active_rescue: "🚨 ಸಕ್ರಿಯ ರಕ್ಷಣಾ ಕಾರ್ಯಾಚರಣೆಗಳು"
+            active_rescue: "🚨 ಸಕ್ರಿಯ ರಕ್ಷಣಾ ಕಾರ್ಯಾಚರಣೆಗಳು",
+            // Post Status & Time
+            verified: "ಪರಿಶೀಲಿಸಲಾಗಿದೆ",
+            pending_verification: "ಪರಿಶೀಲನೆ ಬಾಕಿ ಇದೆ",
+            active_hazard: "ಸಕ್ರಿಯ ಅಪಾಯ",
+            label_hazard: "ಅಪಾಯ:",
+            label_issued: "ಹೊರಡಿಸಲಾಗಿದೆ:",
+            just_now: "ಈಗಷ್ಟೇ",
+            min_ago: " ನಿಮಿಷಗಳ ಹಿಂದೆ",
+            hr_ago: " ಗಂಟೆಗಳ ಹಿಂದೆ",
+            day_ago: " ದಿನಗಳ ಹಿಂದೆ",
+            // Extended Hazards
+            rough_sea: "ಪ್ರಕ್ಷುಬ್ಧ ಸಮುದ್ರ",
+            high_wave: "ಎತ್ತರದ ಅಲೆಗಳು"
         }
     },
 

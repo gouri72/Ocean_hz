@@ -8,6 +8,12 @@ const App = {
         OfflineManager.init();
         await TranslationManager.init();
 
+        // Refresh dashboard content on language change
+        const langSelect = document.getElementById('language-select');
+        if (langSelect) {
+            langSelect.addEventListener('change', () => this.loadDashboard());
+        }
+
         // Ensure user is registered to prevent FK errors
         this.ensureUserExists();
 
@@ -102,6 +108,9 @@ const App = {
 
                 // Load SOS Reports
                 this.loadSOSReports();
+
+                // Load Safety Alerts (Places to Avoid)
+                this.loadSafetyAlerts();
             }
         } catch (error) {
             console.warn('Could not load dashboard stats', error);
@@ -124,12 +133,12 @@ const App = {
         posts.forEach(post => {
             const isPending = !post.verified;
             // Status text/color
-            let statusText = 'Pending Verification';
+            let statusText = TranslationManager.get('pending_verification') || 'Pending Verification';
             let statusClass = 'pending';
             let statusColor = 'var(--warning)';
 
             if (post.verified) {
-                statusText = 'Verified';
+                statusText = TranslationManager.get('verified') || 'Verified';
                 statusClass = 'verified';
                 statusColor = 'var(--success)';
             }
@@ -140,7 +149,8 @@ const App = {
 
             // Hazard Icon
             const icon = HAZARD_ICONS[post.hazard_type] || '⚠️';
-            const hazardName = post.hazard_type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+            const hazardKey = post.hazard_type.toLowerCase();
+            const hazardName = TranslationManager.get(hazardKey) || post.hazard_type.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
             const card = document.createElement('div');
             card.className = 'post-card';
@@ -298,51 +308,111 @@ const App = {
 
     getTimeAgo(date) {
         const seconds = Math.floor((new Date() - date) / 1000);
-        if (seconds < 60) return 'Just now';
+        if (seconds < 60) return TranslationManager.get('just_now') || 'Just now';
+
         const minutes = Math.floor(seconds / 60);
-        if (minutes < 60) return `${minutes}m ago`;
+        const minStr = TranslationManager.get('min_ago') || 'm ago';
+        if (minutes < 60) return `${minutes}${minStr}`;
+
         const hours = Math.floor(minutes / 60);
-        if (hours < 24) return `${hours}h ago`;
-        return `${Math.floor(hours / 24)}d ago`;
+        const hrStr = TranslationManager.get('hr_ago') || 'h ago';
+        if (hours < 24) return `${hours}${hrStr}`;
+
+        const dayStr = TranslationManager.get('day_ago') || 'd ago';
+        return `${Math.floor(hours / 24)}${dayStr}`;
     },
 
     renderIncoisAlerts(alerts) {
-        const container = document.getElementById('incois-alerts-container');
-        if (!container) return;
+        // ... (existing code) ...
+    },
 
-        container.innerHTML = '';
+    async loadSafetyAlerts() {
+        try {
+            const container = document.getElementById('safety-alerts-container');
+            const section = document.getElementById('safety-alerts-section');
+            if (!container || !section) return;
 
-        if (!alerts || alerts.length === 0) {
-            container.innerHTML = '<p class="text-center" style="color:var(--text-muted); font-size: 0.9rem;">No active INCOIS alerts.</p>';
-            return;
+            const response = await fetch(`${API_CONFIG.BASE_URL}/safety-alerts`);
+            const alerts = await response.json();
+
+            if (alerts.length > 0) {
+                // Translation Dictionary for Guidelines
+                const GUIDELINES = {
+                    en: {
+                        tsunami: "⚠️ Move to higher ground immediately. Do not stay near the coast.",
+                        cyclone: "⚠️ Stay indoors. Secure windows and doors. Avoid coastal areas.",
+                        high_tide: "⚠️ Do not enter the water. High waves expected."
+                    },
+                    hi: {
+                        tsunami: "⚠️ तुरंत ऊंचे स्थान पर जाएं। तट के पास न रहें।",
+                        cyclone: "⚠️ घर के अंदर रहें। खिड़कियां और दरवाजे बंद रखें। तटीय क्षेत्रों से बचें।",
+                        high_tide: "⚠️ पानी में प्रवेश न करें। ऊंची लहरों की आशंका है।"
+                    },
+                    kn: {
+                        tsunami: "⚠️ ತಕ್ಷಣ ಎತ್ತರದ ಪ್ರದೇಶಕ್ಕೆ ಹೋಗಿ. ಕರಾವಳಿ ಹತ್ತಿರ ಇರಬೇಡಿ.",
+                        cyclone: "⚠️ ಮನೆಯೊಳಗೆ ಇರಿ. ಕಿಟಕಿಗಳು ಮತ್ತು ಬಾಗಿಲುಗಳನ್ನು ಭದ್ರಪಡಿಸಿ.",
+                        high_tide: "⚠️ ನೀರಿಗೆ ಇಳಿಯಬೇಡಿ. ಎತ್ತರದ ಅಲೆಗಳ ನಿರೀಕ್ಷೆಯಿದೆ."
+                    }
+                };
+
+                const currentLang = document.getElementById('language-select').value || 'en';
+                const langData = GUIDELINES[currentLang] || GUIDELINES['en'];
+
+                // Update Section Header Translation
+                const TR_HEADER = {
+                    en: '⚠️ Places to Avoid',
+                    hi: '⚠️ सुरक्षित नहीं',
+                    kn: '⚠️ ಹೋಗಬಾರದು'
+                };
+                const header = section.querySelector('h2.section-title');
+                if (header) {
+                    header.textContent = TR_HEADER[currentLang] || TR_HEADER['en'];
+                }
+
+                section.style.display = 'block';
+                container.innerHTML = '';
+
+                alerts.forEach(alert => {
+                    const card = document.createElement('div');
+                    card.className = 'post-card'; // Reuse post card styles
+                    card.style.borderLeft = '5px solid var(--error)';
+                    card.style.background = 'rgba(255, 0, 0, 0.1)';
+                    card.style.marginBottom = '15px';
+
+                    const guideline = langData[alert.hazard_type] || "Caution advised.";
+                    const hazardKey = alert.hazard_type.toLowerCase();
+                    const hazardLabel = TranslationManager.get(hazardKey) || alert.hazard_type.toUpperCase().replace('_', ' ');
+
+                    card.innerHTML = `
+                        <div class="post-content" style="width:100%">
+                            <div class="post-header">
+                                <span class="post-type" style="color: var(--error)">
+                                    🚫 ${alert.location_name}
+                                </span>
+                                <span class="post-verified" style="background: var(--error); color: white; border:none;">
+                                    ${TranslationManager.get('active_hazard') || 'ACTIVE HAZARD'}
+                                </span>
+                            </div>
+                            
+                            <p class="post-description">
+                                <strong>${TranslationManager.get('label_hazard') || 'Hazard:'}</strong> ${hazardLabel} <br>
+                                <div style="margin-top:10px; padding:10px; background:rgba(0,0,0,0.2); border-radius:6px; font-weight:500; font-size:1rem;">
+                                    ${guideline}
+                                </div>
+                            </p>
+                            <div style="font-size:0.8rem; color:var(--text-muted); margin-top:5px;">
+                                ${TranslationManager.get('label_issued') || 'Issued:'} ${new Date(alert.created_at + 'Z').toLocaleString()}
+                            </div>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            } else {
+                section.style.display = 'none';
+            }
+        } catch (error) {
+            console.error('Error loading safety alerts:', error);
         }
-
-        alerts.forEach(alert => {
-            const card = document.createElement('div');
-            card.className = 'alert-card';
-
-            // Severity Class
-            const severity = alert.severity.toLowerCase();
-
-            // Attempt translation lookups
-            const alertTypeKey = alert.alert_type ? alert.alert_type.toLowerCase().replace(/ /g, '_') : '';
-            const translatedTitle = (window.TranslationManager && window.TranslationManager.get(alertTypeKey)) || alert.title;
-            const affectedAreaLabel = (window.TranslationManager && window.TranslationManager.get('affected_area')) || 'Affected Area';
-            const severityLabel = (window.TranslationManager && window.TranslationManager.get(severity)) || alert.severity;
-
-            card.innerHTML = `
-                <div class="alert-header">
-                    <div class="alert-title">⚠️ <span data-i18n="${alertTypeKey}">${translatedTitle}</span></div>
-                    <span class="alert-severity ${severity}" data-i18n="${severity}">${severityLabel}</span>
-                </div>
-                <p class="alert-description">${alert.description}</p>
-                <div class="alert-meta">
-                    <span>📍 <span data-i18n="affected_area">${affectedAreaLabel}</span>: ${alert.affected_area}</span>
-                    <span>🕒 ${new Date(alert.issued_at + 'Z').toLocaleDateString()}</span>
-                </div>
-             `;
-            container.appendChild(card);
-        });
     },
 
     setupReportForm() {

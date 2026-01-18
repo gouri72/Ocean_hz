@@ -10,9 +10,9 @@ import json
 import shutil
 from datetime import datetime
 import logging
+import schemas # Added to support schemas.ClassName usage
 
-from database import get_db, init_db, SessionLocal, User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification
-from database import get_db, init_db, SessionLocal, User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification
+from database import get_db, init_db, SessionLocal, User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification, SafetyAlert
 from schemas import (
     UserCreate, UserResponse, HazardPostCreate, HazardPostResponse, HazardPostDetail,
     DashboardResponse, DashboardPost, INCOISAlertResponse, MapDataResponse, MapMarker,
@@ -726,6 +726,36 @@ async def update_post_status(post_id: int, status: PostStatusUpdate, db: Session
     db.refresh(post)
     
     return post
+
+# --- Safety Alerts Endpoints ---
+
+@app.post("/api/admin/safety-alerts", response_model=schemas.SafetyAlertResponse)
+def create_safety_alert(alert: schemas.SafetyAlertCreate, db: Session = Depends(get_db)):
+    db_alert = SafetyAlert(
+        location_name=alert.location_name,
+        hazard_type=alert.hazard_type,
+        active=True
+    )
+    db.add(db_alert)
+    db.commit()
+    db.refresh(db_alert)
+    return db_alert
+
+
+@app.get("/api/safety-alerts", response_model=List[schemas.SafetyAlertResponse])
+def get_active_safety_alerts(db: Session = Depends(get_db)):
+    return db.query(SafetyAlert).filter(SafetyAlert.active == True).all()
+
+
+@app.put("/api/admin/safety-alerts/{alert_id}/deactivate")
+def deactivate_safety_alert(alert_id: int, db: Session = Depends(get_db)):
+    alert = db.query(SafetyAlert).filter(SafetyAlert.id == alert_id).first()
+    if not alert:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    
+    alert.active = False
+    db.commit()
+    return {"message": "Alert deactivated"}
 
 @app.get("/api/admin/historical-data")
 async def get_historical_data(db: Session = Depends(get_db)):

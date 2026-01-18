@@ -163,29 +163,67 @@
                 <div id="pending-container" class="posts-container">
                     <p class="text-center" style="color:var(--text-muted)">Loading pending posts...</p>
                 </div>
+                <div id="pending-container" class="posts-container">
+                    <p class="text-center" style="color:var(--text-muted)">Loading pending posts...</p>
+                </div>
             </div>
 
             <div class="side-column">
-                <h2 class="section-title">Ocean Sensor Network</h2>
-                <div class="card">
-                    <h3>Live Sensor Status</h3>
-                    <div style="max-height: 400px; overflow-y: auto;">
-                        <table id="sensor-table">
-                            <thead>
-                                <tr>
-                                    <th>Sensor ID/Loc</th>
-                                    <th>Type</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Sensor data loaded here -->
-                            </tbody>
-                        </table>
+                <h2 class="section-title">⚠️ Broadcast Safety Alert</h2>
+                <div class="card" style="margin-bottom: 30px; border-color: var(--error);">
+                    <form onsubmit="AdminApp.createSafetyAlert(event)">
+                        <div style="margin-bottom: 15px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:500;">Place to Avoid</label>
+                            <input type="text" name="location_name" placeholder="e.g. Marina Beach" required
+                                style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:white;">
+                        </div>
+                        <div style="margin-bottom: 15px;">
+                            <label style="display:block; margin-bottom:5px; font-weight:500;">Hazard Type</label>
+                            <select name="hazard_type" required
+                                style="width:100%; padding:8px; border-radius:6px; border:1px solid var(--border); background:var(--surface-2); color:white;">
+                                <option value="tsunami">Tsunami</option>
+                                <option value="cyclone">Cyclone</option>
+                                <option value="high_tide">High Tide</option>
+                            </select>
+                        </div>
+                        <div id="form-status"
+                            style="margin-bottom: 15px; display: none; padding: 10px; border-radius: 6px; font-size: 0.9rem;">
+                        </div>
+                        <button type="submit" class="btn-primary" style="width:100%; background:var(--error);">🚨
+                            Broadcast Alert</button>
+                    </form>
+
+                    <h4 style="margin-top:20px; border-top:1px solid var(--border); padding-top:10px;">Active Alerts
+                    </h4>
+                    <div id="active-alerts-list" style="margin-top:10px;">
+                        <!-- Active alerts will appear here -->
                     </div>
                 </div>
             </div>
         </div>
+    </div>
+
+    <script src="/js/config.js?v=1.2"></script>
+    <script src="/js/admin.js?v=1.2"></script>
+    <div class="card">
+        <h3>Live Sensor Status</h3>
+        <div style="max-height: 400px; overflow-y: auto;">
+            <table id="sensor-table">
+                <thead>
+                    <tr>
+                        <th>Sensor ID/Loc</th>
+                        <th>Type</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Sensor data loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+    </div>
+    </div>
     </div>
 
     <script src="/js/config.js"></script>

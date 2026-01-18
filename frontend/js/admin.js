@@ -51,6 +51,7 @@ const AdminApp = {
         await this.loadPendingPosts();
         await this.loadSensorData();
         await this.loadSOSReports();
+        await this.loadActiveSafetyAlerts();
     },
 
     async loadPendingPosts() {
@@ -279,8 +280,115 @@ const AdminApp = {
         } catch (error) {
             console.error('Error loading SOS reports:', error);
         }
+    },
+
+    // --- Safety Alerts Logic ---
+    async createSafetyAlert(e) {
+        e.preventDefault();
+        const form = e.target;
+        const formData = new FormData(form);
+        const statusDiv = document.getElementById('form-status');
+
+        const data = {
+            location_name: formData.get('location_name'),
+            hazard_type: formData.get('hazard_type')
+        };
+
+        if (statusDiv) {
+            statusDiv.style.display = 'block';
+            statusDiv.style.background = 'rgba(255, 255, 255, 0.1)';
+            statusDiv.style.color = 'var(--text-color)';
+            statusDiv.textContent = 'Broadcasting...';
+        }
+
+        try {
+            const response = await fetch(`${API_CONFIG.BASE_URL}/admin/safety-alerts`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                if (statusDiv) {
+                    statusDiv.style.background = 'rgba(16, 185, 129, 0.2)';
+                    statusDiv.style.color = '#10b981';
+                    statusDiv.textContent = '✅ Alert Broadcasted Successfully!';
+                }
+                form.reset();
+                this.loadActiveSafetyAlerts(); // Refresh list
+
+                // Hide status after 3s
+                setTimeout(() => { if (statusDiv) statusDiv.style.display = 'none'; }, 3000);
+
+            } else {
+                const err = await response.json();
+                if (statusDiv) {
+                    statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                    statusDiv.style.color = '#ef4444';
+                    statusDiv.textContent = '❌ Failed: ' + (err.detail || 'Unknown error');
+                }
+            }
+        } catch (error) {
+            console.error('Error creating alert:', error);
+            if (statusDiv) {
+                statusDiv.style.background = 'rgba(239, 68, 68, 0.2)';
+                statusDiv.style.color = '#ef4444';
+                statusDiv.textContent = '❌ Network Connection Error';
+            }
+        }
+    },
+
+    async loadActiveSafetyAlerts() {
+        try {
+            const container = document.getElementById('active-alerts-list');
+            if (!container) return;
+
+            const response = await fetch(`${API_CONFIG.BASE_URL}/safety-alerts`);
+            const alerts = await response.json();
+
+            container.innerHTML = '';
+
+            if (alerts.length === 0) {
+                container.innerHTML = '<p style="font-size:0.9rem; color:var(--text-muted);">No active alerts.</p>';
+                return;
+            }
+
+            alerts.forEach(alert => {
+                const item = document.createElement('div');
+                item.style.padding = '10px';
+                item.style.marginBottom = '10px';
+                item.style.background = 'rgba(255,0,0,0.1)';
+                item.style.borderRadius = '6px';
+                item.style.border = '1px solid var(--error)';
+
+                item.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong>🚫 ${alert.location_name}</strong><br>
+                            <small style="color:var(--error);">Hazard: ${alert.hazard_type.toUpperCase()}</small>
+                        </div>
+                        <button onclick="AdminApp.deactivateAlert(${alert.id})" style="background:var(--surface); border:1px solid var(--border); color:white; padding:4px 8px; border-radius:4px; cursor:pointer;">End</button>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+
+        } catch (error) {
+            console.error('Error loading alerts:', error);
+        }
+    },
+
+    async deactivateAlert(id) {
+        if (!confirm('Deactivate this alert?')) return;
+        try {
+            await fetch(`${API_CONFIG.BASE_URL}/admin/safety-alerts/${id}/deactivate`, { method: 'PUT' });
+            this.loadActiveSafetyAlerts();
+        } catch (error) {
+            console.error('Error deactivating:', error);
+        }
     }
 };
+
 
 // Expose to window for onclick handlers
 window.AdminApp = AdminApp;

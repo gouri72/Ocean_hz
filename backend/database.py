@@ -146,6 +146,19 @@ class AdminNotification(Base):
     read = Column(Boolean, default=False)
 
 
+class SafetyAlert(Base):
+    __tablename__ = "safety_alerts"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    
+    location_name = Column(String)  # Place to avoid
+    hazard_type = Column(String)    # tsunami, cyclone, high_tide
+    
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+
+
 # Create all tables
 def init_db():
     Base.metadata.create_all(bind=engine)

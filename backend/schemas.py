@@ -181,3 +181,21 @@ class SyncResponse(BaseModel):
     success: bool
     post_id: Optional[int]
     message: str
+
+
+# Safety Alert Schemas
+class SafetyAlertCreate(BaseModel):
+    location_name: str
+    hazard_type: str
+
+
+class SafetyAlertResponse(BaseModel):
+    id: int
+    location_name: str
+    hazard_type: str
+    active: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
