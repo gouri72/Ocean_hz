@@ -246,15 +246,7 @@ const App = {
 
             if (reports.length > 0) {
                 // Update header translation dynamically if needed
-                const header = section.querySelector('h2.section-title');
-                if (header) {
-                    const TR_HEADER = {
-                        en: '🚨 Active Rescue Operations',
-                        hi: '🚨 सक्रिय बचाव अभियान',
-                        kn: '🚨 ಸಕ್ರಿಯ ರಕ್ಷಣಾ ಕಾರ್ಯಾಚರಣೆಗಳು'
-                    };
-                    header.textContent = TR_HEADER[currentLang] || TR_HEADER['en'];
-                }
+                // Header translation handled by TranslationManager
 
                 section.style.display = 'block';
                 container.innerHTML = '';
@@ -358,16 +350,7 @@ const App = {
                 const currentLang = document.getElementById('language-select').value || 'en';
                 const langData = GUIDELINES[currentLang] || GUIDELINES['en'];
 
-                // Update Section Header Translation
-                const TR_HEADER = {
-                    en: '⚠️ Places to Avoid',
-                    hi: '⚠️ सुरक्षित नहीं',
-                    kn: '⚠️ ಹೋಗಬಾರದು'
-                };
-                const header = section.querySelector('h2.section-title');
-                if (header) {
-                    header.textContent = TR_HEADER[currentLang] || TR_HEADER['en'];
-                }
+                // Header translation handled by TranslationManager
 
                 section.style.display = 'block';
                 container.innerHTML = '';

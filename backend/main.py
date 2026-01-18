@@ -12,6 +12,7 @@ from datetime import datetime
 import logging
 import schemas # Added to support schemas.ClassName usage
 
+import database
 from database import get_db, init_db, SessionLocal, User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification, SafetyAlert
 from schemas import (
     UserCreate, UserResponse, HazardPostCreate, HazardPostResponse, HazardPostDetail,
@@ -786,6 +787,86 @@ async def get_historical_data(db: Session = Depends(get_db)):
             "accuracy_rate": (verified_posts / total_posts * 100) if total_posts > 0 else 0
         }
     }
+
+
+# ==================== SOS ENDPOINTS ====================
+
+@app.post("/api/sos/reports", response_model=schemas.SOSReportResponse)
+async def create_sos_report(
+    emergency_type: str = Form(...),
+    latitude: float = Form(...),
+    longitude: float = Form(...),
+    description: Optional[str] = Form(None),
+    contact_number: Optional[str] = Form(None),
+    location_name: Optional[str] = Form(None),
+    image: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_db)
+):
+    """Create a new SOS report"""
+    
+    image_path = None
+    if image:
+        timestamp = datetime.utcnow()
+        filename = f"sos_{int(timestamp.timestamp())}_{image.filename}"
+        image_path = os.path.join("uploads", filename)
+        with open(image_path, "wb") as buffer:
+            shutil.copyfileobj(image.file, buffer)
+
+    sos_report = database.SOSReport(
+        emergency_type=emergency_type,
+        latitude=latitude,
+        longitude=longitude,
+        description=description,
+        contact_number=contact_number,
+        location_name=location_name,
+        image_path=image_path,
+        active=True
+    )
+    
+    db.add(sos_report)
+    db.commit()
+    db.refresh(sos_report)
+    
+    return sos_report
+
+
+@app.get("/api/sos/reports", response_model=List[schemas.SOSReportResponse])
+def get_sos_reports(active_only: bool = True, db: Session = Depends(get_db)):
+    """Get SOS reports"""
+    query = db.query(database.SOSReport)
+    if active_only:
+        query = query.filter(database.SOSReport.active == True, database.SOSReport.resolved == False)
+    return query.order_by(database.SOSReport.timestamp.desc()).all()
+
+
+@app.put("/api/sos/{sos_id}/deploy")
+def deploy_rescue_team(sos_id: int, deployment: schemas.SOSDeployment, db: Session = Depends(get_db)):
+    """Deploy rescue team to SOS location"""
+    report = db.query(database.SOSReport).filter(database.SOSReport.id == sos_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="SOS Report not found")
+        
+    report.deployed = True
+    report.deployed_by = deployment.deployed_by
+    report.deployed_at = datetime.utcnow()
+    report.rescue_notes = deployment.rescue_notes
+    
+    db.commit()
+    return {"message": "Rescue team deployed successfully"}
+
+
+@app.put("/api/sos/{sos_id}/resolve")
+def resolve_sos_report(sos_id: int, db: Session = Depends(get_db)):
+    """Mark SOS report as resolved"""
+    report = db.query(database.SOSReport).filter(database.SOSReport.id == sos_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="SOS Report not found")
+        
+    report.resolved = True
+    report.active = False
+    
+    db.commit()
+    return {"message": "SOS report resolved"}
 
 
 if __name__ == "__main__":

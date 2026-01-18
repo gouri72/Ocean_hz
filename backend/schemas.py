@@ -196,6 +196,43 @@ class SafetyAlertResponse(BaseModel):
     active: bool
     created_at: datetime
 
+
+    class Config:
+        from_attributes = True
+
+
+# SOS Schemas
+class SOSReportCreate(BaseModel):
+    emergency_type: str
+    description: Optional[str] = None
+    contact_number: Optional[str] = None
+    latitude: float
+    longitude: float
+    location_name: Optional[str] = None
+
+
+class SOSDeployment(BaseModel):
+    deployed_by: str
+    rescue_notes: Optional[str] = None
+
+
+class SOSReportResponse(BaseModel):
+    id: int
+    emergency_type: str
+    description: Optional[str]
+    contact_number: Optional[str]
+    latitude: float
+    longitude: float
+    location_name: Optional[str]
+    image_path: Optional[str]
+    active: bool
+    deployed: bool
+    resolved: bool
+    deployed_by: Optional[str]
+    deployed_at: Optional[datetime]
+    rescue_notes: Optional[str]
+    timestamp: datetime
+    
     class Config:
         from_attributes = True
 
