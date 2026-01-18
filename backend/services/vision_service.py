@@ -4,6 +4,8 @@ import google.generativeai as genai
 from typing import Dict, List, Tuple
 import logging
 import base64
+from PIL import Image
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -24,7 +26,7 @@ class GeminiVisionService:
         self.model = genai.GenerativeModel('gemini-1.5-flash')
         self.enabled = True
         
-        # Ocean hazard keywords
+        # Ocean hazard keywords for fallback
         self.ocean_keywords = {
             'tsunami': ['tsunami', 'tidal wave', 'sea wave', 'ocean wave', 'flooding', 'inundation', 'massive wave', 'wall of water'],
             'cyclone': ['cyclone', 'hurricane', 'storm', 'typhoon', 'wind', 'rain', 'clouds', 'weather', 'tropical storm', 'severe weather'],
@@ -36,6 +38,22 @@ class GeminiVisionService:
             'marine', 'maritime', 'coastal', 'bay', 'harbor', 'surf',
             'flooding', 'storm', 'wind', 'rain', 'weather'
         ]
+    
+    def _get_image_mime_type(self, image_path: str) -> str:
+        """Detect actual MIME type of image"""
+        try:
+            with Image.open(image_path) as img:
+                format_to_mime = {
+                    'JPEG': 'image/jpeg',
+                    'PNG': 'image/png',
+                    'WEBP': 'image/webp',
+                    'GIF': 'image/gif',
+                    'BMP': 'image/bmp'
+                }
+                return format_to_mime.get(img.format, 'image/jpeg')
+        except Exception as e:
+            logger.warning(f"Could not detect image format: {e}. Defaulting to image/jpeg")
+            return 'image/jpeg'
     
     async def analyze_image(self, image_path: str) -> Dict:
         """
@@ -55,38 +73,52 @@ class GeminiVisionService:
             return self._get_fallback_result()
         
         try:
+            # Detect correct MIME type
+            mime_type = self._get_image_mime_type(image_path)
+            
             # Read and encode image
             with open(image_path, 'rb') as image_file:
                 image_data = image_file.read()
             
-            # Create detailed prompt for ocean hazard detection
-            prompt = """Analyze this image carefully and provide a detailed assessment for ocean hazard detection.
+            # Create improved prompt
+            prompt = """You are an AI validator for a coastal disaster reporting system.
 
-Please analyze:
-1. Is this image related to ocean, sea, or coastal areas?
-2. Does it show any ocean-related hazards (tsunami, cyclone/storm, high tide/flooding)?
-3. What specific elements do you see? (water, waves, flooding, storm clouds, wind damage, etc.)
-4. What is the severity or intensity of any hazard shown?
-5. Describe the overall scene and context.
+Your task: Determine if this image shows evidence of TSUNAMI, CYCLONE/HURRICANE, or HIGH TIDE/STORM SURGE events.
 
-Provide your response in this exact JSON format:
+VALID OCEAN HAZARDS (Answer YES):
+1. TSUNAMI: Massive waves, wall of water, unusual wave patterns, tsunami aftermath/damage
+2. CYCLONE/HURRICANE: Heavy rain + strong winds, storm damage, hurricane conditions, severe weather with flooding
+3. HIGH TIDE/STORM SURGE: Abnormally high water levels, coastal flooding, flooded streets near coast, water inundation, beach erosion
+
+IMPORTANT RULES:
+- If you see FLOODING (especially in coastal/urban areas) → Consider it VALID (likely storm surge or tsunami)
+- If you see ROUGH SEAS, large waves, or stormy ocean → VALID
+- If you see HEAVY RAIN with flooding → VALID (cyclone-related)
+- If you see STORM DAMAGE (fallen trees, damaged buildings near coast) → VALID
+- Normal beach/ocean scenes with calm weather → INVALID
+- Rain alone (without flooding) → INVALID
+- Images unrelated to water/weather → INVALID
+
+Respond ONLY with this JSON format (no other text):
 {
-    "ocean_related": true/false,
-    "hazard_detected": true/false,
+    "ocean_related": true or false,
+    "hazard_detected": true or false,
     "hazard_type": "tsunami" or "cyclone" or "high_tide" or "none",
-    "confidence": 0.0-1.0,
-    "detected_elements": ["element1", "element2", ...],
-    "scene_description": "detailed description",
-    "severity_indicators": ["indicator1", "indicator2", ...]
-}
+    "confidence": 0.0 to 1.0,
+    "detected_elements": ["element1", "element2"],
+    "scene_description": "brief description of what you see",
+    "reasoning": "why you classified it this way"
+}"""
 
-Be specific and accurate. Only mark as ocean_related if you clearly see ocean/sea/coastal elements. Only mark hazard_detected if there's clear evidence of a dangerous condition."""
-
-            # Upload image and generate content
-            response = self.model.generate_content([prompt, {"mime_type": "image/jpeg", "data": image_data}])
+            # Upload image and generate content with correct MIME type
+            response = self.model.generate_content([
+                prompt, 
+                {"mime_type": mime_type, "data": image_data}
+            ])
             
             # Parse response
             response_text = response.text.strip()
+            logger.info(f"Gemini raw response: {response_text[:300]}")
             
             # Try to extract JSON from response
             try:
@@ -97,8 +129,10 @@ Be specific and accurate. Only mark as ocean_related if you clearly see ocean/se
                     response_text = response_text.split('```')[1].split('```')[0].strip()
                 
                 gemini_result = json.loads(response_text)
-            except json.JSONDecodeError:
-                logger.warning(f"Could not parse Gemini response as JSON: {response_text}")
+                logger.info(f"Parsed JSON: {gemini_result}")
+            except json.JSONDecodeError as e:
+                logger.warning(f"Could not parse Gemini response as JSON: {e}")
+                logger.warning(f"Response text: {response_text}")
                 # Fallback: analyze text response
                 gemini_result = self._parse_text_response(response_text)
             
@@ -109,15 +143,32 @@ Be specific and accurate. Only mark as ocean_related if you clearly see ocean/se
             confidence = float(gemini_result.get('confidence', 0.0))
             detected_elements = gemini_result.get('detected_elements', [])
             scene_description = gemini_result.get('scene_description', 'Unable to analyze scene')
+            reasoning = gemini_result.get('reasoning', '')
             
-            # Validate hazard type
-            if hazard_type not in ['tsunami', 'cyclone', 'high_tide', 'none']:
-                hazard_type = 'none'
-                hazard_detected = False
+            # Normalize hazard type
+            hazard_type_lower = hazard_type.lower()
             
-            # If hazard type is 'none', set hazard_detected to False
+            # Map variations to standard types
+            if any(term in hazard_type_lower for term in ['flood', 'surge', 'tide', 'inundation']):
+                hazard_type = 'high_tide'
+            elif any(term in hazard_type_lower for term in ['storm', 'cyclone', 'hurricane', 'typhoon', 'weather']):
+                hazard_type = 'cyclone'
+            elif any(term in hazard_type_lower for term in ['tsunami', 'wave', 'tidal']):
+                hazard_type = 'tsunami'
+            elif hazard_type_lower not in ['tsunami', 'cyclone', 'high_tide', 'none']:
+                # Unknown hazard type - if hazard was detected, default to high_tide
+                if hazard_detected:
+                    hazard_type = 'high_tide'
+                    logger.warning(f"Unknown hazard type '{hazard_type_lower}', defaulting to 'high_tide'")
+                else:
+                    hazard_type = 'none'
+            
+            # Consistency check
             if hazard_type == 'none':
                 hazard_detected = False
+            
+            if hazard_detected:
+                ocean_related = True  # Force ocean_related if hazard detected
             
             # Create labels from detected elements
             labels = detected_elements[:10] if detected_elements else []
@@ -132,16 +183,18 @@ Be specific and accurate. Only mark as ocean_related if you clearly see ocean/se
                 'web_entities': [],
                 'scene_description': scene_description,
                 'all_elements': detected_elements,
+                'reasoning': reasoning,
                 'gemini_raw_response': response_text[:500]  # Store first 500 chars for debugging
             }
             
-            logger.info(f"Gemini analysis complete: ocean_related={ocean_related}, "
-                       f"hazard={hazard_type}, confidence={confidence:.2f}")
+            logger.info(f"✓ Gemini analysis: ocean_related={ocean_related}, "
+                       f"hazard={hazard_type}, confidence={confidence:.2f}, "
+                       f"description='{scene_description[:100]}'")
             
             return result
             
         except Exception as e:
-            logger.error(f"Error analyzing image with Gemini: {str(e)}")
+            logger.error(f"Error analyzing image with Gemini: {str(e)}", exc_info=True)
             return self._get_fallback_result()
     
     def _parse_text_response(self, text: str) -> Dict:
@@ -171,7 +224,7 @@ Be specific and accurate. Only mark as ocean_related if you clearly see ocean/se
             'confidence': confidence,
             'detected_elements': [],
             'scene_description': text[:200],
-            'severity_indicators': []
+            'reasoning': 'Parsed from text response (JSON parsing failed)'
         }
     
     def _get_fallback_result(self) -> Dict:
@@ -185,7 +238,8 @@ Be specific and accurate. Only mark as ocean_related if you clearly see ocean/se
             'objects': [],
             'web_entities': [],
             'scene_description': 'Image analysis unavailable - Gemini API not configured',
-            'all_elements': []
+            'all_elements': [],
+            'reasoning': 'API not available'
         }
 
 

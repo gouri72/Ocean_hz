@@ -55,15 +55,6 @@ class HazardPostResponse(BaseModel):
         from_attributes = True
 
 
-class HazardPostDetail(HazardPostResponse):
-    ai_analysis: Optional[str]
-    incois_correlation: Optional[str]
-    image_analysis: Optional['ImageAnalysisResponse']
-    
-    class Config:
-        from_attributes = True
-
-
 # Image Analysis Schemas
 class ImageAnalysisResponse(BaseModel):
     id: int
@@ -74,6 +65,15 @@ class ImageAnalysisResponse(BaseModel):
     scene_description: Optional[str]
     detected_elements: Optional[str]
     analyzed_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class HazardPostDetail(HazardPostResponse):
+    ai_analysis: Optional[str]
+    incois_correlation: Optional[str]
+    image_analysis: Optional[ImageAnalysisResponse]
     
     class Config:
         from_attributes = True

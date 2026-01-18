@@ -1,0 +1,32 @@
+M  .env.example
+M  .gitignore
+M  API_KEYS_GUIDE.md
+ M backend/__pycache__/main.cpython-311.pyc
+ M backend/__pycache__/schemas.cpython-311.pyc
+A  backend/background_tasks.py
+M  backend/main.py
+M  backend/schemas.py
+M  backend/services/__pycache__/vision_service.cpython-311.pyc
+M  backend/services/vision_service.py
+A  "backend/uploads/user_ajy97vskq_1768671638_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/user_ajy97vskq_1768671938_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/user_ajy97vskq_1768672354_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/user_ajy97vskq_1768672484_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/user_ajy97vskq_1768704039_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/user_ajy97vskq_1768704101_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/user_ajy97vskq_1768704861_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/user_ajy97vskq_1768705383_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/watermarked/wm_user_ajy97vskq_1768671638_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/watermarked/wm_user_ajy97vskq_1768671938_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/watermarked/wm_user_ajy97vskq_1768672354_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/watermarked/wm_user_ajy97vskq_1768672484_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/watermarked/wm_user_ajy97vskq_1768704039_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/watermarked/wm_user_ajy97vskq_1768704101_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/watermarked/wm_user_ajy97vskq_1768704861_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+A  "backend/uploads/watermarked/wm_user_ajy97vskq_1768705383_WhatsApp Image 2026-01-16 at 9.53.49 AM.jpeg"
+M  frontend/css/style.css
+M  frontend/index.html
+M  frontend/js/api.js
+M  frontend/js/app.js
+M  frontend/js/config.js
+?? git_status.txt

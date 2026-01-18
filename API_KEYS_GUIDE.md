@@ -21,7 +21,7 @@ You need **4 API keys** to run the Ocean Hazard Live Reporting System:
 
 ### 1. ✅ Mapbox Access Token (DONE!)
 **Status**: ✅ Already configured  
-**Current Value**: `pk.eyJ1IjoiZ291cmlzbmF5YWsiLCJhIjoiY21raWR1cnNhMDBhbzNwczl4dzR2NmdnOCJ9.05oDlLLvjh9DDbLv1rjgcA`
+**Current Value**: `YOUR_MAPBOX_ACCESS_TOKEN_HERE`
 
 You're all set! This token is valid and ready to use.
 
@@ -161,7 +161,7 @@ DATABASE_URL=sqlite:///./ocean_hazard.db
 GEMINI_API_KEY=AIzaSy_your_actual_gemini_key_here  # ← ADD THIS
 
 # Mapbox (Already configured ✅)
-MAPBOX_ACCESS_TOKEN=pk.eyJ1IjoiZ291cmlzbmF5YWsiLCJhIjoiY21raWR1cnNhMDBhbzNwczl4dzR2NmdnOCJ9.05oDlLLvjh9DDbLv1rjgcA
+MAPBOX_ACCESS_TOKEN=YOUR_MAPBOX_ACCESS_TOKEN_HERE
 
 # Twilio SMS
 TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  # ← ADD THIS

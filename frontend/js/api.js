@@ -48,6 +48,24 @@ const ApiClient = {
         return this.request(`/map/data?n=${north}&s=${south}&e=${east}&w=${west}`);
     },
 
+    // --- Reverse Geocoding (Added for Location Name) ---
+    async getPlaceName(lat, lng) {
+        try {
+            const token = API_CONFIG.MAPBOX_TOKEN;
+            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?types=place,locality,district,region&limit=1&access_token=${token}`;
+            const response = await fetch(url);
+            const data = await response.json();
+
+            if (data.features && data.features.length > 0) {
+                return data.features[0].place_name;
+            }
+            return null;
+        } catch (error) {
+            console.warn('Reverse geocoding failed:', error);
+            return null;
+        }
+    },
+
     // --- INCOIS ---
     async getIncoisAlerts() {
         // Fetch active alerts from backend which syncs with INCOIS
@@ -65,11 +83,14 @@ const ApiClient = {
     },
 
     // --- User ---
-    async createUser(deviceId, fcmToken = null) {
+    async createUser(userId, langPref = 'en') {
         return this.request('/users', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ device_id: deviceId, fcm_token: fcmToken })
+            body: JSON.stringify({
+                user_id: userId,
+                language_preference: langPref
+            })
         });
     }
 };

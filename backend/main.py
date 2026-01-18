@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, Form
+from fastapi import FastAPI, File, UploadFile, Depends, HTTPException, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import JSONResponse
@@ -10,7 +10,7 @@ import shutil
 from datetime import datetime
 import logging
 
-from database import get_db, init_db, User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification
+from database import get_db, init_db, SessionLocal, User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification
 from schemas import (
     UserCreate, UserResponse, HazardPostCreate, HazardPostResponse, HazardPostDetail,
     DashboardResponse, DashboardPost, INCOISAlertResponse, MapDataResponse, MapMarker,
@@ -60,7 +60,11 @@ async def startup_event():
     logger.info("Database initialized")
     
     # Fetch and store INCOIS alerts
-    await sync_incois_alerts()
+    db = SessionLocal()
+    try:
+        await sync_incois_alerts(db)
+    finally:
+        db.close()
 
 
 @app.on_event("shutdown")
@@ -139,7 +143,10 @@ async def update_language(user_id: str, language: str, db: Session = Depends(get
     return {"success": True, "language": language}
 
 
+
 # ==================== HAZARD POST ENDPOINTS ====================
+from background_tasks import process_post_background
+
 
 @app.post("/api/posts", response_model=ValidationResult)
 async def create_hazard_post(
@@ -152,11 +159,12 @@ async def create_hazard_post(
     location_name: Optional[str] = Form(None),
     synced: bool = Form(True),
     image: UploadFile = File(...),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
     db: Session = Depends(get_db)
 ):
     """
     Create new hazard post with image
-    Performs AI validation and INCOIS verification
+    Performs AI validation and INCOIS verification in background
     """
     try:
         # Validate hazard type
@@ -177,18 +185,18 @@ async def create_hazard_post(
         
         logger.info(f"Image uploaded: {image_path}")
         
-        # Validate image
+        # Validate image format (Quick check)
         is_valid = await image_service.validate_image(image_path)
         if not is_valid:
             os.remove(image_path)
-            raise HTTPException(status_code=400, detail="Invalid image file")
+            raise HTTPException(status_code=400, detail="Invalid image file or format")
         
-        # Add watermark
+        # Add watermark (Fast operation)
         watermarked_path = await image_service.add_watermark(
             image_path, location_name or "Unknown", latitude, longitude, timestamp
         )
         
-        # Create post record
+        # Create post record with initial state
         post = HazardPost(
             user_id=user_id,
             hazard_type=hazard_type,
@@ -200,7 +208,13 @@ async def create_hazard_post(
             image_path=image_path,
             watermarked_image_path=watermarked_path,
             timestamp=timestamp,
-            synced=synced
+            synced=synced,
+            # Initial validation state
+            ai_validated=False,
+            ai_confidence=0.0,
+            incois_validated=False,
+            verified=False,
+            rejected=False
         )
         db.add(post)
         db.commit()
@@ -208,94 +222,24 @@ async def create_hazard_post(
         
         logger.info(f"Post created: ID={post.id}")
         
-        # If offline post, send SMS alert
+        # If offline post, send SMS alert immediately
         if not synced:
             await twilio_service.send_offline_alert(
                 post.id, location_name or f"{latitude}, {longitude}"
             )
         
-        # Perform AI validation
-        try:
-            ai_result = await vision_service.analyze_image(image_path)
-            
-            # Store analysis results
-            analysis = ImageAnalysis(
-                post_id=post.id,
-                labels=json.dumps(ai_result.get('labels', [])),
-                objects=json.dumps(ai_result.get('objects', [])),
-                web_entities=json.dumps(ai_result.get('web_entities', [])),
-                ocean_related=ai_result.get('ocean_related', False),
-                hazard_detected=ai_result.get('hazard_detected', False),
-                confidence_score=ai_result.get('confidence_score', 0.0),
-                scene_description=ai_result.get('scene_description'),
-                detected_elements=json.dumps(ai_result.get('all_elements', []))
-            )
-            db.add(analysis)
-            
-            # Update post with AI results
-            post.ai_validated = ai_result.get('ocean_related', False) and ai_result.get('hazard_detected', False)
-            post.ai_confidence = ai_result.get('confidence_score', 0.0)
-            post.ai_analysis = json.dumps(ai_result)
-            
-            logger.info(f"AI validation complete: ocean_related={ai_result.get('ocean_related')}, "
-                       f"hazard_detected={ai_result.get('hazard_detected')}")
-            
-        except Exception as e:
-            logger.error(f"AI validation failed: {str(e)}")
-            post.ai_validated = False
-            post.ai_confidence = 0.0
-        
-        # Perform INCOIS validation
-        try:
-            incois_result = await incois_service.validate_hazard(
-                hazard_type, latitude, longitude, timestamp
-            )
-            
-            post.incois_validated = incois_result.get('validated', False)
-            post.incois_correlation = incois_result.get('correlation')
-            
-            logger.info(f"INCOIS validation: {incois_result.get('validated')}")
-            
-        except Exception as e:
-            logger.error(f"INCOIS validation failed: {str(e)}")
-            post.incois_validated = False
-        
-        # Determine final verification status
-        if post.ai_validated and post.incois_validated:
-            post.verified = True
-            post.rejected = False
-            message = "Report verified! Both AI and INCOIS confirm ocean hazard."
-            
-            # Send success notification
-            await twilio_service.send_validation_alert(post.id, "verified")
-            
-        elif not post.ai_validated:
-            post.verified = False
-            post.rejected = True
-            post.rejection_reason = "Image not related to ocean hazard"
-            message = "Report rejected: Image does not appear to be an ocean hazard."
-            
-            # Send rejection notification
-            await twilio_service.send_validation_alert(
-                post.id, "rejected", post.rejection_reason
-            )
-        else:
-            post.verified = False
-            post.rejected = False
-            message = "Report pending: AI validated but no matching INCOIS data."
-        
-        db.commit()
-        db.refresh(post)
+        # Add to background tasks for heavy AI/INCOIS processing
+        background_tasks.add_task(process_post_background, post.id)
         
         return ValidationResult(
             success=True,
-            ai_validated=post.ai_validated,
-            ai_confidence=post.ai_confidence,
-            incois_validated=post.incois_validated,
-            verified=post.verified,
-            rejected=post.rejected,
-            rejection_reason=post.rejection_reason,
-            message=message
+            ai_validated=False,
+            ai_confidence=0.0,
+            incois_validated=False,
+            verified=False,
+            rejected=False,
+            rejection_reason=None,
+            message="Report submitted successfully! AI analysis is running in the background."
         )
         
     except HTTPException:
@@ -303,6 +247,7 @@ async def create_hazard_post(
     except Exception as e:
         logger.error(f"Error creating post: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
 
 
 @app.get("/api/posts", response_model=List[HazardPostResponse])
@@ -337,10 +282,12 @@ async def get_post(post_id: int, db: Session = Depends(get_db)):
 
 @app.get("/api/dashboard", response_model=DashboardResponse)
 async def get_dashboard(db: Session = Depends(get_db)):
-    """Get dashboard data with verified posts and INCOIS alerts"""
-    # Get verified posts
-    verified_posts = db.query(HazardPost).filter(
-        HazardPost.verified == True
+    """Get dashboard data with all non-rejected posts and INCOIS alerts"""
+    
+    # Get all non-rejected posts (includes verified AND pending)
+    # This ensures posts show up immediately while AI analyzes them
+    all_posts = db.query(HazardPost).filter(
+        HazardPost.rejected == False  # Show everything except rejected
     ).order_by(HazardPost.timestamp.desc()).limit(50).all()
     
     # Get INCOIS alerts
@@ -355,8 +302,9 @@ async def get_dashboard(db: Session = Depends(get_db)):
         HazardPost.verified == False,
         HazardPost.rejected == False
     ).count()
+    rejected_count = db.query(HazardPost).filter(HazardPost.rejected == True).count()
     
-    # Format posts for dashboard
+    # Format posts for dashboard with status indicators
     dashboard_posts = [
         DashboardPost(
             id=post.id,
@@ -371,17 +319,16 @@ async def get_dashboard(db: Session = Depends(get_db)):
             verified=post.verified,
             timestamp=post.timestamp
         )
-        for post in verified_posts
+        for post in all_posts
     ]
     
     return DashboardResponse(
         posts=dashboard_posts,
-        incois_alerts=[INCOISAlertResponse.from_orm(alert) for alert in incois_alerts],
+        incois_alerts=[INCOISAlertResponse.model_validate(alert) for alert in incois_alerts],
         total_posts=total_posts,
         verified_posts=verified_count,
         pending_posts=pending_count
     )
-
 
 # ==================== MAP ENDPOINTS ====================
 
