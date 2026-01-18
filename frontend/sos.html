@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SOS | Ocean Hazard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            background: #1a0f0f;
+            /* Dark reddish Tint for urgency */
+        }
+
+        .sos-container {
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .sos-header {
+            text-align: center;
+            margin-bottom: 30px;
+            margin-top: 20px;
+        }
+
+        .sos-title {
+            font-size: 3rem;
+            color: var(--error);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin: 0;
+            animation: pulse-red 2s infinite;
+        }
+
+        @keyframes pulse-red {
+            0% {
+                text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+            }
+
+            50% {
+                text-shadow: 0 0 20px rgba(239, 68, 68, 0.8), 0 0 40px rgba(239, 68, 68, 0.4);
+            }
+
+            100% {
+                text-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
+            }
+        }
+
+        .sos-subtitle {
+            font-size: 1.2rem;
+            color: white;
+            margin-top: 10px;
+        }
+
+        .form-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 25px;
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .emergency-btn {
+            background: linear-gradient(135deg, #ef4444, #b91c1c);
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 800;
+            padding: 16px;
+            width: 100%;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 20px;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .emergency-btn:active {
+            transform: scale(0.98);
+        }
+
+        .emergency-btn::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(transparent, rgba(255, 255, 255, 0.2), transparent);
+            transform: rotate(45deg);
+            animation: shine 3s infinite;
+        }
+
+        @keyframes shine {
+            0% {
+                opacity: 0;
+                transform: translateX(-100%) rotate(45deg);
+            }
+
+            50% {
+                opacity: 1;
+            }
+
+            100% {
+                opacity: 0;
+                transform: translateX(100%) rotate(45deg);
+            }
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 30px;
+            display: block;
+            color: var(--text-muted);
+            text-decoration: none;
+        }
+
+        .form-group label {
+            color: #ffcccc;
+            /* Light red text */
+        }
+
+        .form-input,
+        .form-textarea,
+        .form-select {
+            border-color: #552222;
+        }
+
+        .form-input:focus,
+        .form-textarea:focus,
+        .form-select:focus {
+            border-color: var(--error);
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sos-container">
+        <header class="sos-header">
+            <h1 class="sos-title">SOS</h1>
+            <p class="sos-subtitle">Emergency Rescue Request</p>
+        </header>
+
+        <form id="sos-form" class="form-card">
+
+            <div class="form-group">
+                <label class="form-label">Type of Emergency</label>
+                <select name="emergency_type" class="form-select" required>
+                    <option value="" disabled selected>Select Emergency...</option>
+                    <option value="drowning">🏊 Person Drowning</option>
+                    <option value="boat_accident">🚤 Boat Accident / Capsize</option>
+                    <option value="stranded">🏝️ Stranded on Rock/Island</option>
+                    <option value="medical">🏥 Medical Emergency</option>
+                    <option value="other">⚠️ Other</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Active Contact Number <span style="color:var(--error)">*</span></label>
+                <input type="tel" name="contact_number" class="form-input" placeholder="Enter phone number" required
+                    pattern="[0-9]{10}" title="10 digit mobile number">
+                <small style="color:var(--text-muted); display:block; margin-top:5px;">Rescue team will contact this
+                    number immediately.</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Exact Location <span style="color:var(--error)">*</span></label>
+                <input type="text" name="location_name" class="form-input"
+                    placeholder="e.g. North end of Marina Beach, near red tower" required>
+                <small style="color:var(--text-muted); display:block; margin-top:5px;">Describe location clearly. No GPS
+                    is collected.</small>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Description / Situation</label>
+                <textarea name="description" class="form-textarea" rows="3"
+                    placeholder="Number of people, visible landmarks, current status..."></textarea>
+            </div>
+
+            <button type="submit" class="emergency-btn">
+                🚨 REQUEST HELP NOW
+            </button>
+        </form>
+
+        <a href="/" class="back-link">← Cancel and Return Home</a>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="success-modal" class="modal">
+        <div class="modal-content" style="text-align: center;">
+            <div style="font-size: 4rem; margin-bottom: 20px;">🚁</div>
+            <h2 style="color: var(--success); margin-bottom: 10px;">Help is on the way!</h2>
+            <p>Rescue team has been alerted.<br>Stay calm and keep your phone nearby.</p>
+            <button onclick="window.location.href='/'" class="btn-primary" style="margin-top: 20px; width: 100%;">Return
+                to Home</button>
+        </div>
+    </div>
+
+    <script src="/js/config.js"></script>
+    <script src="/js/api.js?v=2.1"></script>
+    <script src="/js/sos.js?v=2.1"></script>
+</body>
+
+</html>

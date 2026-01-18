@@ -12,7 +12,10 @@ from datetime import datetime
 import logging
 import schemas # Added to support schemas.ClassName usage
 
-from database import get_db, init_db, SessionLocal, User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification, SafetyAlert
+from database import (
+    engine, SessionLocal, init_db, get_db,
+    User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification, SafetyAlert, SOSReport
+)
 from schemas import (
     UserCreate, UserResponse, HazardPostCreate, HazardPostResponse, HazardPostDetail,
     DashboardResponse, DashboardPost, INCOISAlertResponse, MapDataResponse, MapMarker,
@@ -756,6 +759,58 @@ def deactivate_safety_alert(alert_id: int, db: Session = Depends(get_db)):
     alert.active = False
     db.commit()
     return {"message": "Alert deactivated"}
+
+
+# ==================== SOS ALERTS ENDPOINTS ====================
+
+@app.post("/api/sos", response_model=schemas.SOSReportResponse)
+def create_sos_report(report: schemas.SOSReportCreate, db: Session = Depends(get_db)):
+    db_report = SOSReport(
+        emergency_type=report.emergency_type,
+        location_name=report.location_name,
+        contact_number=report.contact_number,
+        description=report.description,
+        latitude=report.latitude,
+        longitude=report.longitude
+    )
+    db.add(db_report)
+    db.commit()
+    db.refresh(db_report)
+    
+    # TODO: Trigger real SMS/Alert to Rescue Team here
+    
+    return db_report
+
+@app.get("/api/sos/reports", response_model=List[schemas.SOSReportResponse])
+def get_sos_reports(active_only: bool = True, db: Session = Depends(get_db)):
+    query = db.query(SOSReport)
+    if active_only:
+        query = query.filter(SOSReport.is_active == True)
+    return query.order_by(SOSReport.timestamp.desc()).all()
+
+@app.put("/api/sos/{sos_id}/deploy")
+def deploy_rescue_team(sos_id: int, deploy_data: schemas.SOSReportDeploy, db: Session = Depends(get_db)):
+    report = db.query(SOSReport).filter(SOSReport.id == sos_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="SOS Report not found")
+    
+    report.deployed = True
+    report.deployed_by = deploy_data.deployed_by
+    report.rescue_notes = deploy_data.rescue_notes
+    report.deployed_at = datetime.utcnow()
+    
+    db.commit()
+    return {"message": "Rescue team deployed", "id": sos_id}
+
+@app.put("/api/sos/{sos_id}/resolve")
+def resolve_sos_report(sos_id: int, db: Session = Depends(get_db)):
+    report = db.query(SOSReport).filter(SOSReport.id == sos_id).first()
+    if not report:
+        raise HTTPException(status_code=404, detail="SOS Report not found")
+    
+    report.is_active = False
+    db.commit()
+    return {"message": "SOS Report resolved"}
 
 @app.get("/api/admin/historical-data")
 async def get_historical_data(db: Session = Depends(get_db)):
