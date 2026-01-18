@@ -3,7 +3,7 @@ const API_CONFIG = {
     BASE_URL: window.location.hostname === 'localhost'
         ? 'http://localhost:8000/api'
         : '/api',
-    MAPBOX_TOKEN: 'YOUR_MAPBOX_ACCESS_TOKEN_HERE',
+    MAPBOX_TOKEN: 'pk.eyJ1IjoiZ291cmlzbmF5YWsiLCJhIjoiY21raWR1cnNhMDBhbzNwczl4dzR2NmdnOCJ9.05oDlLLvjh9DDbLv1rjgcA', // Replace with actual token
     DEFAULT_LANGUAGE: 'en',
     MAX_IMAGE_SIZE: 10 * 1024 * 1024, // 10MB
     ALLOWED_IMAGE_TYPES: ['image/jpeg', 'image/png', 'image/webp'],

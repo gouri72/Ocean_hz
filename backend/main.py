@@ -11,6 +11,7 @@ from datetime import datetime
 import logging
 
 from database import get_db, init_db, SessionLocal, User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification
+from database import get_db, init_db, SessionLocal, User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification
 from schemas import (
     UserCreate, UserResponse, HazardPostCreate, HazardPostResponse, HazardPostDetail,
     DashboardResponse, DashboardPost, INCOISAlertResponse, MapDataResponse, MapMarker,
@@ -60,6 +61,13 @@ async def startup_event():
     logger.info("Database initialized")
     
     # Fetch and store INCOIS alerts
+    db = SessionLocal()
+    try:
+        await sync_incois_alerts(db=db)
+    except Exception as e:
+        logger.error(f"Startup INCOIS sync failed: {str(e)}")
+    finally:
+        db.close()
     db = SessionLocal()
     try:
         await sync_incois_alerts(db)
@@ -290,10 +298,10 @@ async def get_dashboard(db: Session = Depends(get_db)):
         HazardPost.rejected == False  # Show everything except rejected
     ).order_by(HazardPost.timestamp.desc()).limit(50).all()
     
-    # Get INCOIS alerts
+    # Get INCOIS alerts (Limit to 2 as per user request)
     incois_alerts = db.query(INCOISAlert).filter(
         INCOISAlert.active == True
-    ).order_by(INCOISAlert.issued_at.desc()).all()
+    ).order_by(INCOISAlert.issued_at.desc()).limit(2).all()
     
     # Get statistics
     total_posts = db.query(HazardPost).count()

@@ -190,15 +190,21 @@ const App = {
             // Severity Class
             const severity = alert.severity.toLowerCase();
 
+            // Attempt translation lookups
+            const alertTypeKey = alert.alert_type ? alert.alert_type.toLowerCase().replace(/ /g, '_') : '';
+            const translatedTitle = (window.TranslationManager && window.TranslationManager.get(alertTypeKey)) || alert.title;
+            const affectedAreaLabel = (window.TranslationManager && window.TranslationManager.get('affected_area')) || 'Affected Area';
+            const severityLabel = (window.TranslationManager && window.TranslationManager.get(severity)) || alert.severity;
+
             card.innerHTML = `
                 <div class="alert-header">
-                    <div class="alert-title">⚠️ ${alert.title}</div>
-                    <span class="alert-severity ${severity}">${alert.severity}</span>
+                    <div class="alert-title">⚠️ <span data-i18n="${alertTypeKey}">${translatedTitle}</span></div>
+                    <span class="alert-severity ${severity}" data-i18n="${severity}">${severityLabel}</span>
                 </div>
                 <p class="alert-description">${alert.description}</p>
                 <div class="alert-meta">
-                    <span>📍 ${alert.affected_area}</span>
-                    <span>🕒 Issued: ${new Date(alert.issued_at + 'Z').toLocaleDateString()}</span>
+                    <span>📍 <span data-i18n="affected_area">${affectedAreaLabel}</span>: ${alert.affected_area}</span>
+                    <span>🕒 ${new Date(alert.issued_at + 'Z').toLocaleDateString()}</span>
                 </div>
              `;
             container.appendChild(card);
