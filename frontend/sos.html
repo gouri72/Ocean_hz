@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOS Emergency - Ocean Hazard Alert</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .sos-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .sos-header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #ff4444, #cc0000);
+            padding: 30px;
+            border-radius: 12px;
+            color: white;
+        }
+
+        .sos-header h1 {
+            margin: 0;
+            font-size: 2rem;
+        }
+
+        .sos-header p {
+            margin: 10px 0 0;
+            opacity: 0.9;
+        }
+
+        .emergency-types {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .emergency-btn {
+            padding: 20px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: var(--surface);
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+
+        .emergency-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+
+        .emergency-btn.selected {
+            border-color: var(--error);
+            background: rgba(255, 68, 68, 0.1);
+        }
+
+        .emergency-btn .icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-color);
+        }
+
+        textarea.form-input {
+            min-height: 100px;
+            resize: vertical;
+        }
+
+        .location-display {
+            padding: 15px;
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid var(--success);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .btn-sos {
+            width: 100%;
+            padding: 16px;
+            background: var(--error);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn-sos:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sos-container">
+        <div class="sos-header">
+            <h1>🆘 EMERGENCY SOS</h1>
+            <p>Request immediate rescue assistance</p>
+        </div>
+
+        <form id="sos-form">
+            <div class="form-group">
+                <label>Emergency Type *</label>
+                <div class="emergency-types">
+                    <div class="emergency-btn" data-type="stranded">
+                        <div class="icon">🚢</div>
+                        <div>Stranded</div>
+                    </div>
+                    <div class="emergency-btn" data-type="drowning">
+                        <div class="icon">🌊</div>
+                        <div>Drowning</div>
+                    </div>
+                    <div class="emergency-btn" data-type="boat_accident">
+                        <div class="icon">⚓</div>
+                        <div>Boat Accident</div>
+                    </div>
+                    <div class="emergency-btn" data-type="medical">
+                        <div class="icon">🏥</div>
+                        <div>Medical Emergency</div>
+                    </div>
+                </div>
+                <input type="hidden" id="emergency-type" name="emergency_type" required>
+            </div>
+
+            <div class="form-group">
+                <label>Contact Number (Optional)</label>
+                <input type="tel" id="contact-number" name="contact_number" class="form-input"
+                    placeholder="Your phone number">
+            </div>
+
+            <div class="form-group">
+                <label>Additional Details (Optional)</label>
+                <textarea id="description" name="description" class="form-input"
+                    placeholder="Describe the situation..."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Location *</label>
+                <div id="location-display" class="location-display">
+                    <div id="location-status">📍 Detecting location...</div>
+                </div>
+                <input type="hidden" id="latitude" name="latitude" required>
+                <input type="hidden" id="longitude" name="longitude" required>
+                <input type="hidden" id="location-name" name="location_name">
+            </div>
+
+            <div class="form-group">
+                <label>Photo (Optional)</label>
+                <input type="file" id="image" name="image" accept="image/*" capture="environment" class="form-input">
+            </div>
+
+            <button type="submit" id="submit-btn" class="btn-sos" disabled>
+                🆘 SEND SOS REQUEST
+            </button>
+        </form>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <a href="/" class="btn-text-small">← Back to Home</a>
+        </div>
+    </div>
+
+    <script src="/js/config.js"></script>
+    <script>
+        const SOSApp = {
+            selectedType: null,
+
+            init() {
+                this.setupEmergencyTypes();
+                this.detectLocation();
+                this.setupForm();
+            },
+
+            setupEmergencyTypes() {
+                document.querySelectorAll('.emergency-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        document.querySelectorAll('.emergency-btn').forEach(b => b.classList.remove('selected'));
+                        btn.classList.add('selected');
+                        this.selectedType = btn.dataset.type;
+                        document.getElementById('emergency-type').value = this.selectedType;
+                        this.checkFormReady();
+                    });
+                });
+            },
+
+            async detectLocation() {
+                const statusEl = document.getElementById('location-status');
+
+                if (!navigator.geolocation) {
+                    statusEl.innerHTML = '❌ Geolocation not supported';
+                    return;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+
+                        document.getElementById('latitude').value = lat;
+                        document.getElementById('longitude').value = lng;
+
+                        // Reverse geocode
+                        try {
+                            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+                            const data = await response.json();
+                            const locationName = data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                            document.getElementById('location-name').value = locationName;
+                            statusEl.innerHTML = `✅ ${locationName}`;
+                        } catch (error) {
+                            statusEl.innerHTML = `✅ ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+                        }
+
+                        this.checkFormReady();
+                    },
+                    (error) => {
+                        statusEl.innerHTML = '❌ Location access denied. Please enable GPS.';
+                    }
+                );
+            },
+
+            checkFormReady() {
+                const submitBtn = document.getElementById('submit-btn');
+                const hasType = !!this.selectedType;
+                const hasLocation = !!document.getElementById('latitude').value;
+                submitBtn.disabled = !(hasType && hasLocation);
+            },
+
+            setupForm() {
+                document.getElementById('sos-form').addEventListener('submit', async (e) => {
+                    e.preventDefault();
+
+                    const submitBtn = document.getElementById('submit-btn');
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = '📡 Sending SOS...';
+
+                    try {
+                        const formData = new FormData(e.target);
+
+                        const response = await fetch(`${API_CONFIG.BASE_URL}/sos/report`, {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (response.ok) {
+                            alert('✅ SOS REQUEST SENT!\n\nRescue team has been notified. Help is on the way!');
+                            window.location.href = '/';
+                        } else {
+                            throw new Error('Failed to send SOS');
+                        }
+                    } catch (error) {
+                        console.error('SOS Error:', error);
+                        alert('❌ Failed to send SOS. Please try again or call emergency services directly.');
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = '🆘 SEND SOS REQUEST';
+                    }
+                });
+            }
+        };
+
+        document.addEventListener('DOMContentLoaded', () => SOSApp.init());
+    </script>
+</body>
+
+</html>
