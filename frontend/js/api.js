@@ -43,15 +43,6 @@ const ApiClient = {
         return this.request('/posts?limit=' + limit);
     },
 
-    // --- SOS ---
-    async createSOSReport(data) {
-        return this.request('/sos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        });
-    },
-
     // --- Map Data ---
     async getMapData(north, south, east, west) {
         return this.request(`/map/data?n=${north}&s=${south}&e=${east}&w=${west}`);

@@ -199,35 +199,3 @@ class SafetyAlertResponse(BaseModel):
     class Config:
         from_attributes = True
 
-
-# SOS Report Schemas
-class SOSReportCreate(BaseModel):
-    emergency_type: str
-    location_name: str
-    contact_number: str
-    description: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
-
-
-class SOSReportDeploy(BaseModel):
-    deployed_by: str
-    rescue_notes: Optional[str] = None
-
-
-class SOSReportResponse(BaseModel):
-    id: int
-    emergency_type: str
-    description: Optional[str]
-    location_name: str
-    contact_number: str
-    is_active: bool
-    deployed: bool
-    deployed_by: Optional[str]
-    deployed_at: Optional[datetime]
-    rescue_notes: Optional[str]
-    timestamp: datetime
-
-    class Config:
-        from_attributes = True
-

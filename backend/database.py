@@ -158,30 +158,6 @@ class SafetyAlert(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
-class SOSReport(Base):
-    __tablename__ = "sos_reports"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    
-    emergency_type = Column(String)  # drowning, boat_accident, stranded, medical
-    description = Column(Text, nullable=True)
-    
-    # manual location
-    location_name = Column(String) 
-    latitude = Column(Float, nullable=True)
-    longitude = Column(Float, nullable=True)
-    
-    contact_number = Column(String)
-    
-    is_active = Column(Boolean, default=True)
-    deployed = Column(Boolean, default=False)
-    deployed_by = Column(String, nullable=True)
-    deployed_at = Column(DateTime, nullable=True)
-    rescue_notes = Column(Text, nullable=True)
-    
-    timestamp = Column(DateTime, default=datetime.utcnow)
-
-
 
 # Create all tables
 def init_db():
