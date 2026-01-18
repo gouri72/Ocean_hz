@@ -191,8 +191,27 @@ const App = {
             const section = document.getElementById('dashboard-sos-section');
             if (!container || !section) return;
 
-            const response = await fetch(`${API_CONFIG.BASE_URL}/sos/reports?active_only=true`);
-            const reports = await response.json();
+            let reports = [];
+            let isOffline = false;
+
+            try {
+                const response = await fetch(`${API_CONFIG.BASE_URL}/sos/reports?active_only=true`);
+                reports = await response.json();
+
+                // Cache data
+                if (window.OfflineManager) {
+                    OfflineManager.cacheData('sos_user_dash', reports);
+                }
+            } catch (netErr) {
+                console.warn('Failed to fetch SOS, checking cache...');
+                if (window.OfflineManager) {
+                    const cached = await OfflineManager.getCachedData('sos_user_dash');
+                    if (cached) {
+                        reports = cached;
+                        isOffline = true;
+                    }
+                }
+            }
 
             // Hardcoded Translations
             const currentLang = document.getElementById('language-select').value || 'en';
@@ -205,6 +224,7 @@ const App = {
                     on_way: 'is on the way/on scene.',
                     reported: 'Reported',
                     location: 'Location:',
+                    offline_mode: '⚠️ OFFLINE MODE - Cached Data',
                     types: {
                         stranded: 'STRANDED',
                         drowning: 'DROWNING',
@@ -219,6 +239,7 @@ const App = {
                     on_way: 'रास्ते में है / घटनास्थल पर है।',
                     reported: 'रिपोर्ट किया गया',
                     location: 'स्थान:',
+                    offline_mode: '⚠️ ऑफलाइन मोड - पुराना डेटा',
                     types: {
                         stranded: 'फंसे हुए',
                         drowning: 'डूबना',
@@ -233,6 +254,7 @@ const App = {
                     on_way: 'ಮಾರ್ಗದಲ್ಲಿದ್ದಾರೆ / ಸ್ಥಳದಲ್ಲಿದ್ದಾರೆ.',
                     reported: 'ವರದಿ ಮಾಡಲಾಗಿದೆ',
                     location: 'ಸ್ಥಳ:',
+                    offline_mode: '⚠️ ಆಫ್‌ಲೈನ್ ಮೋಡ್ - ಸಂಗ್ರಹಿಸಿದ ಡೇಟಾ',
                     types: {
                         stranded: 'ಸಿಕ್ಕಿಹಾಕಿಕೊಂಡಿದ್ದಾರೆ',
                         drowning: 'ಮುಳುಗುತ್ತಿದ್ದಾರೆ',
@@ -250,6 +272,14 @@ const App = {
 
                 section.style.display = 'block';
                 container.innerHTML = '';
+
+                if (isOffline) {
+                    const banner = document.createElement('div');
+                    banner.style.cssText = "background:#fef08a; color:#854d0e; padding:8px; text-align:center; border-radius:6px; margin-bottom:10px; font-size:0.9rem; font-weight:bold;";
+                    banner.textContent = t.offline_mode;
+                    container.appendChild(banner);
+                }
+
 
                 reports.forEach(sos => {
                     const card = document.createElement('div');

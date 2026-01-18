@@ -151,6 +151,7 @@
     </div>
 
     <script src="/js/config.js"></script>
+    <script src="/js/offline.js?v=2.0"></script>
     <script>
         const RescueApp = {
             teamMember: null,
@@ -191,18 +192,44 @@
                 try {
                     const response = await fetch(`${API_CONFIG.BASE_URL}/sos/reports?active_only=true`);
                     const reports = await response.json();
+
+                    // Cache for offline use
+                    if (window.OfflineManager) {
+                        OfflineManager.cacheData('sos_reports', reports);
+                    }
+
                     this.renderSOSReports(reports);
                 } catch (error) {
                     console.error('Error loading SOS reports:', error);
+
+                    // Try loading from offline cache
+                    if (window.OfflineManager) {
+                        const cachedReports = await OfflineManager.getCachedData('sos_reports');
+                        if (cachedReports) {
+                            console.log('Loaded SOS reports from cache');
+                            this.renderSOSReports(cachedReports, true); // true = isOffline
+                            return;
+                        }
+                    }
+
+                    document.getElementById('sos-container').innerHTML =
+                        '<p style="text-align:center;color:red;">Failed to load reports (Offline)</p>';
                 }
             },
 
-            renderSOSReports(reports) {
+            renderSOSReports(reports, isOffline = false) {
                 const container = document.getElementById('sos-container');
                 container.innerHTML = '';
 
+                if (isOffline) {
+                    const offlineBanner = document.createElement('div');
+                    offlineBanner.style.cssText = 'grid-column: 1/-1; background: #fef08a; padding: 10px; border-radius: 8px; text-align: center; margin-bottom: 20px; color: #854d0e; font-weight: bold;';
+                    offlineBanner.innerText = '⚠️ OFFLINE MODE: Showing cached reports';
+                    container.appendChild(offlineBanner);
+                }
+
                 if (reports.length === 0) {
-                    container.innerHTML = '<div class="card" style="grid-column: 1/-1; text-align: center; padding: 40px;"><p style="color: var(--text-muted);">✅ No active SOS requests</p></div>';
+                    container.innerHTML += '<div class="card" style="grid-column: 1/-1; text-align: center; padding: 40px;"><p style="color: var(--text-muted);">✅ No active SOS requests</p></div>';
                     return;
                 }
 

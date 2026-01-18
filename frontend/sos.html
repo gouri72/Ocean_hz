@@ -361,10 +361,28 @@
                     // Verify API Config
                     const baseUrl = (window.API_CONFIG && window.API_CONFIG.BASE_URL) ? window.API_CONFIG.BASE_URL : '/api';
 
-                    const response = await fetch(`${baseUrl}/sos/reports`, {
-                        method: 'POST',
-                        body: formData
-                    });
+                    let response;
+                    try {
+                        response = await fetch(`${baseUrl}/sos/reports`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } catch (netErr) {
+                        // Network failed - Try Offline Save
+                        if (window.OfflineManager) {
+                            const result = await OfflineManager.saveSOSOffline(formData);
+                            if (result.success) {
+                                btn.innerHTML = '💾 SAVED OFFLINE';
+                                btn.style.background = '#eab308'; // Yellow/Amber
+                                setTimeout(() => {
+                                    alert('📡 YOU ARE OFFLINE!\n\nYour SOS has been saved locally. It will be sent automatically when connection is restored.\n\nPlease find high ground or safety immediately.');
+                                    window.location.href = '/';
+                                }, 500);
+                                return;
+                            }
+                        }
+                        throw netErr;
+                    }
 
                     if (response.ok) {
                         btn.innerHTML = '✅ ALERT SENT';
@@ -380,7 +398,7 @@
                     }
                 } catch (error) {
                     console.error('SOS submit failed:', error);
-                    alert('❌ FAILED TO SEND ALERT!\n\nPlease check your internet connection or CALL EMERGENCY SERVICES (102/108) IMMEDIATELY.');
+                    alert('❌ FAILED TO SEND ALERT!\n\nPlease check connection or CALL 102/108 IMMEDIATELY.');
                     btn.disabled = false;
                     btn.innerHTML = originalContent;
                 }

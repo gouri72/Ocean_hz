@@ -1,8 +1,7 @@
 // Offline & Network Status Manager - with IndexedDB
 const OfflineManager = {
     dbName: 'OceanHazardDB',
-    storeName: 'offlineReports',
-    dbVersion: 1,
+    dbVersion: 2,
     db: null,
 
     init() {
@@ -25,8 +24,17 @@ const OfflineManager = {
 
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
-                if (!db.objectStoreNames.contains(this.storeName)) {
-                    db.createObjectStore(this.storeName, { keyPath: 'id', autoIncrement: true });
+                // Store for Hazard Posts
+                if (!db.objectStoreNames.contains('offlineReports')) {
+                    db.createObjectStore('offlineReports', { keyPath: 'id', autoIncrement: true });
+                }
+                // Store for SOS Reports (New)
+                if (!db.objectStoreNames.contains('offlineSOS')) {
+                    db.createObjectStore('offlineSOS', { keyPath: 'id', autoIncrement: true });
+                }
+                // Store for API Cache (New)
+                if (!db.objectStoreNames.contains('apiCache')) {
+                    db.createObjectStore('apiCache', { keyPath: 'key' });
                 }
             };
 
@@ -34,7 +42,10 @@ const OfflineManager = {
                 this.db = event.target.result;
                 resolve(this.db);
                 // Try sync on init if online
-                if (navigator.onLine) this.syncPendingReports();
+                if (navigator.onLine) {
+                    this.syncPendingReports();
+                    this.syncPendingSOS();
+                }
             };
 
             request.onerror = (event) => {
@@ -51,7 +62,10 @@ const OfflineManager = {
             this.statusElement.classList.remove('offline');
             this.statusElement.classList.add('online');
             this.statusText.textContent = 'Online';
-            if (this.db) this.syncPendingReports();
+            if (this.db) {
+                this.syncPendingReports();
+                this.syncPendingSOS();
+            }
         } else {
             this.statusElement.classList.remove('online');
             this.statusElement.classList.add('offline');
@@ -59,14 +73,35 @@ const OfflineManager = {
         }
     },
 
+    // --- Caching Logic (For viewing offline) ---
+    async cacheData(key, data) {
+        if (!this.db) await this.openDB();
+        return new Promise((resolve) => {
+            const tx = this.db.transaction(['apiCache'], 'readwrite');
+            tx.objectStore('apiCache').put({ key: key, data: data, timestamp: Date.now() });
+            tx.oncomplete = () => resolve();
+            tx.onerror = () => resolve();
+        });
+    },
+
+    async getCachedData(key) {
+        if (!this.db) await this.openDB();
+        return new Promise((resolve) => {
+            const tx = this.db.transaction(['apiCache'], 'readonly');
+            const req = tx.objectStore('apiCache').get(key);
+            req.onsuccess = () => resolve(req.result ? req.result.data : null);
+            req.onerror = () => resolve(null);
+        });
+    },
+
+    // --- Hazard Reports Logic ---
     async saveReportOffline(formData) {
         if (!this.db) await this.openDB();
 
-        // Convert FormData to simple Object + Base64 Image
         const data = {};
         for (const [key, value] of formData.entries()) {
             if (value instanceof File) {
-                data['image_file'] = value; // Store blob directly in IDB
+                data['image_file'] = value;
             } else {
                 data[key] = value;
             }
@@ -74,119 +109,142 @@ const OfflineManager = {
         data.timestamp = new Date().toISOString();
 
         return new Promise((resolve, reject) => {
-            const transaction = this.db.transaction([this.storeName], 'readwrite');
-            const store = transaction.objectStore(this.storeName);
-            const request = store.add(data);
-
-            request.onsuccess = () => {
-                console.log('Report saved to IndexedDB');
-                resolve({ success: true, offline: true });
-            };
-
-            request.onerror = (e) => {
-                console.error('Error saving offline:', e.target.error);
-                reject({ success: false, error: e.target.error });
-            };
+            const tx = this.db.transaction(['offlineReports'], 'readwrite');
+            const req = tx.objectStore('offlineReports').add(data);
+            req.onsuccess = () => resolve({ success: true, offline: true });
+            req.onerror = (e) => reject({ success: false, error: e.target.error });
         });
     },
 
     async syncPendingReports() {
         if (!this.db) await this.openDB();
 
-        // 1. Get all pending items
-        const getAllRequest = this.db.transaction(this.storeName).objectStore(this.storeName).getAll();
+        try {
+            const tx = this.db.transaction('offlineReports', 'readonly');
+            const req = tx.objectStore('offlineReports').getAll();
 
-        getAllRequest.onsuccess = async (event) => {
-            const reports = event.target.result;
-            if (!reports || reports.length === 0) return;
+            req.onsuccess = async (event) => {
+                const reports = event.target.result;
+                if (!reports || reports.length === 0) return;
 
-            console.log(`Syncing ${reports.length} pending reports...`);
-            this.statusText.textContent = `Syncing (${reports.length})...`;
+                if (this.statusText) this.statusText.textContent = `Syncing (${reports.length})...`;
 
-            for (const report of reports) {
-                try {
-                    await this.uploadSingleReport(report);
-                    // On success, delete from DB
-                    this.deleteReport(report.id);
-                } catch (err) {
-                    console.error('Sync failed for report', report.id, err);
-                    // Keep in DB to retry later
+                for (const report of reports) {
+                    try {
+                        await this.uploadSingleReport(report);
+                        this.deleteItem('offlineReports', report.id);
+                    } catch (err) {
+                        console.error('Sync failed for report', report.id, err);
+                    }
                 }
-            }
-
-            this.statusText.textContent = 'Online - Synced';
-            // Trigger refresh if needed
-            if (window.App && window.App.loadDashboard) window.App.loadDashboard();
-        };
-    },
-
-    deleteReport(id) {
-        const tx = this.db.transaction([this.storeName], 'readwrite');
-        tx.objectStore(this.storeName).delete(id);
+                if (this.statusText) this.statusText.textContent = 'Online - Synced';
+                if (window.App && window.App.loadDashboard) window.App.loadDashboard();
+            };
+        } catch (e) {
+            console.error("Error initiating report sync", e);
+        }
     },
 
     uploadSingleReport(report) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-
-            // Need to convert blob back to base64 for the specific API endpoint 
-            // OR use multipart if I change backend. 
-            // The User's previous request implemented:
-            // class OfflinePostSync(BaseModel):
-            //     image_base64: str
-
             const file = report.image_file;
             if (!file) {
-                // Should not happen, but if so just reject
+                // Even without image, we might need to sync. But this app requires image usually.
+                // If no image file object, maybe it was just data.
+                // Let's try syncing without image processing if so (unlikely for this app's flow but good for robustness)
                 return reject("No image file");
             }
 
             reader.readAsDataURL(file);
             reader.onload = async () => {
-                const base64String = reader.result.split(',')[1]; // Remove data:image/xxx;base64, prefix
-
-                const payload = {
-                    user_id: report.user_id,
-                    hazard_type: report.hazard_type,
-                    severity: report.severity,
-                    description: report.description,
-                    latitude: parseFloat(report.latitude),
-                    longitude: parseFloat(report.longitude),
-                    location_name: report.location_name,
-                    image_base64: base64String,
-                    timestamp: report.timestamp
-                };
+                const base64String = reader.result.split(',')[1];
+                const payload = { ...report, image_base64: base64String };
+                delete payload.image_file;
+                delete payload.id; // Don't send IDB id
 
                 try {
-                    // Use the configured API URL
-                    const baseUrl = (window.API_CONFIG && window.API_CONFIG.BASE_URL) ? window.API_CONFIG.BASE_URL : 'http://localhost:8000/api';
-                    const url = `${baseUrl}/offline/sync`;
-
-                    const response = await fetch(url, {
+                    const baseUrl = (window.API_CONFIG && window.API_CONFIG.BASE_URL) ? window.API_CONFIG.BASE_URL : '/api';
+                    const response = await fetch(`${baseUrl}/offline/sync`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
+                        headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error('Sync error details:', response.status, errorText);
-                        throw new Error(`Server error: ${response.status} - ${errorText}`);
-                    }
-                    const json = await response.json();
-                    if (!json.success) {
-                        throw new Error(json.message || 'Sync reported failure');
-                    }
-                    console.log('Synced report:', json);
-                    resolve(json);
+                    if (!response.ok) throw new Error('Sync failed');
+                    resolve(await response.json());
                 } catch (err) {
                     reject(err);
                 }
             };
             reader.onerror = (err) => reject(err);
         });
+    },
+
+    // --- SOS Logic ---
+    async saveSOSOffline(formData) {
+        if (!this.db) await this.openDB();
+
+        const data = {};
+        for (const [key, value] of formData.entries()) {
+            data[key] = value;
+            if (value instanceof File) {
+                // Skip file for SOS offline in this version or convert to base64 if needed
+                // For now, assuming SOS is text-heavy.
+            }
+        }
+        data.timestamp = new Date().toISOString();
+
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(['offlineSOS'], 'readwrite');
+            const req = tx.objectStore('offlineSOS').add(data);
+            req.onsuccess = () => resolve({ success: true, offline: true });
+            req.onerror = (e) => reject({ success: false, error: e.target.error });
+        });
+    },
+
+    async syncPendingSOS() {
+        if (!this.db) await this.openDB();
+
+        try {
+            const tx = this.db.transaction('offlineSOS', 'readonly');
+            const req = tx.objectStore('offlineSOS').getAll();
+
+            req.onsuccess = async (event) => {
+                const items = event.target.result;
+                if (!items || items.length === 0) return;
+
+                console.log(`Syncing ${items.length} pending SOS...`);
+
+                for (const item of items) {
+                    try {
+                        const formData = new FormData();
+                        for (const key in item) {
+                            if (key !== 'id' && key !== 'timestamp') formData.append(key, item[key]);
+                        }
+
+                        const baseUrl = (window.API_CONFIG && window.API_CONFIG.BASE_URL) ? window.API_CONFIG.BASE_URL : '/api';
+                        const res = await fetch(`${baseUrl}/sos/reports`, {
+                            method: 'POST',
+                            body: formData
+                        });
+
+                        if (res.ok) {
+                            this.deleteItem('offlineSOS', item.id);
+                        }
+                    } catch (err) {
+                        console.error('SOS Sync failed', item.id, err);
+                    }
+                }
+            };
+        } catch (e) {
+            console.error("Error initiating SOS sync", e);
+        }
+    },
+
+    deleteItem(storeName, id) {
+        if (!this.db) return;
+        const tx = this.db.transaction([storeName], 'readwrite');
+        tx.objectStore(storeName).delete(id);
     }
 };
 
