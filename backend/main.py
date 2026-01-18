@@ -545,7 +545,8 @@ async def sync_offline_post(
         image_data = base64.b64decode(sync_data.image_base64)
         
         # Save image
-        timestamp = datetime.fromisoformat(sync_data.timestamp)
+        ts_str = sync_data.timestamp.replace('Z', '+00:00')
+        timestamp = datetime.fromisoformat(ts_str)
         filename = f"{sync_data.user_id}_{int(timestamp.timestamp())}_offline.jpg"
         image_path = os.path.join("uploads", filename)
         

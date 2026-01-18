@@ -528,12 +528,31 @@ const App = {
                     console.log(pair[0] + ', ' + pair[1]);
                 }
 
-                if (navigator.onLine) {
-                    const result = await ApiClient.submitReport(formData);
-                    this.showToast(result.message || 'Report submitted successfully!', result.rejected ? 'error' : 'success');
-                } else {
-                    await OfflineManager.saveReportOffline(formData);
-                    this.showToast('Saved offline. Will sync when online.', 'info');
+                // Attempt Submission
+                try {
+                    if (navigator.onLine) {
+                        try {
+                            const result = await ApiClient.submitReport(formData);
+                            this.showToast(result.message || 'Report submitted successfully!', result.rejected ? 'error' : 'success');
+                        } catch (apiError) {
+                            console.warn('Online submission failed:', apiError);
+                            // If it's a server error (e.g. 400 Bad Request), don't save offline.
+                            if (apiError.message && (apiError.message.includes('400') || apiError.message.includes('422'))) {
+                                throw apiError;
+                            }
+                            // Otherwise assume network/server outage
+                            throw new Error('NetworkFallback');
+                        }
+                    } else {
+                        throw new Error('Offline');
+                    }
+                } catch (err) {
+                    if (err.message === 'NetworkFallback' || err.message === 'Offline' || err.message.includes('Failed to fetch')) {
+                        await OfflineManager.saveReportOffline(formData);
+                        this.showToast('Saved offline. Will sync automatically.', 'info');
+                    } else {
+                        throw err; // Re-throw validation errors
+                    }
                 }
 
                 // Reset
