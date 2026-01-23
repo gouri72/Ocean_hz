@@ -11,6 +11,11 @@ import shutil
 from datetime import datetime
 import logging
 import schemas # Added to support schemas.ClassName usage
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
 
 import database
 from database import get_db, init_db, SessionLocal, User, HazardPost, ImageAnalysis, INCOISAlert, AdminNotification, SafetyAlert

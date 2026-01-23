@@ -198,6 +198,14 @@
             </div>
         </div>
 
+        <div id="manual-location-div" class="form-group" style="display: none; margin-bottom: 20px;">
+            <label class="form-label" style="color: #dc2626;" data-i18n="manual_location_required">Manual Location
+                Required</label>
+            <input type="text" id="manual-location-input" class="form-input" placeholder="Enter precise location..."
+                data-i18n="enter_precise_location">
+        </div>
+
+
         <form id="sos-form">
             <h3 data-i18n="emergency_type">Nature of Emergency</h3>
             <div class="emergency-type-grid">
@@ -279,6 +287,8 @@
             // 3. Location Service (Robust)
             const statusText = document.getElementById('location-text');
             const accuracyText = document.getElementById('location-accuracy');
+            const manualLocationDiv = document.getElementById('manual-location-div');
+            const manualLocationInput = document.getElementById('manual-location-input');
 
             function updateLocationUI(lat, lng, accuracy, source = "GPS") {
                 document.getElementById('latitude').value = lat;
@@ -286,6 +296,27 @@
                 statusText.textContent = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
                 statusText.style.color = '#059669'; // Green
                 accuracyText.textContent = `Source: ${source} (±${Math.round(accuracy)}m)`;
+
+                // Hide manual input if location found
+                manualLocationDiv.style.display = 'none';
+                manualLocationInput.required = false;
+
+                checkValidity();
+            }
+
+            function enableManualLocation() {
+                statusText.textContent = "Location unavailable";
+                statusText.style.color = '#dc2626';
+                accuracyText.textContent = "Please enter location manually below";
+
+                // Show manual input
+                manualLocationDiv.style.display = 'block';
+                manualLocationInput.required = true;
+
+                // Clear coords
+                document.getElementById('latitude').value = "";
+                document.getElementById('longitude').value = "";
+
                 checkValidity();
             }
 
@@ -311,19 +342,12 @@
                     // Error
                     (err) => {
                         console.error('GPS Error:', err);
-                        statusText.textContent = "⚠️ GPS Unavailable";
-                        statusText.style.color = '#dc2626';
-                        accuracyText.textContent = "Falling back to Estimated Location";
-
-                        // Fallback (e.g. Center of region or IP based - here we mock for UX flow if needed, but best to enforce GPS for SOS)
-                        // For SAFETY: We usually don't want to fake SOS location.
-                        // But for usability if GPS is just flaky:
-                        alert("Please enable GPS for accurate rescue!");
+                        enableManualLocation();
                     },
                     { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
                 );
             } else {
-                statusText.textContent = "Geolocation not supported";
+                enableManualLocation();
             }
 
             // 4. Form Validation
@@ -331,15 +355,19 @@
             const contactInput = document.querySelector('input[name="contact_number"]');
 
             form.addEventListener('input', checkValidity);
+            manualLocationInput.addEventListener('input', checkValidity);
 
             function checkValidity() {
                 const type = document.querySelector('input[name="emergency_type"]:checked');
                 const contact = contactInput.value;
                 const lat = document.getElementById('latitude').value;
+                const manualLoc = manualLocationInput.value;
                 const btn = document.getElementById('sos-submit-btn');
 
-                // Basic validation: Type selected, contact has valid length (at least 10), location found
-                if (type && contact.length >= 10 && lat) {
+                // Valid if type selected AND contact valid AND (lat exists OR manual loc entered)
+                const hasLocation = (lat && lat !== "") || (manualLoc && manualLoc.trim().length > 2);
+
+                if (type && contact.length >= 10 && hasLocation) {
                     btn.disabled = false;
                 } else {
                     btn.disabled = true;
@@ -357,6 +385,17 @@
 
                 try {
                     const formData = new FormData(form);
+
+                    // Handle manual location
+                    if (!formData.get('latitude') || formData.get('latitude') === "") {
+                        formData.set('latitude', '0.0');
+                        formData.set('longitude', '0.0');
+
+                        // Use manual location name if set
+                        if (manualLocationInput.value) {
+                            formData.set('location_name', manualLocationInput.value + " [Manual]");
+                        }
+                    }
 
                     // Verify API Config
                     const baseUrl = (window.API_CONFIG && window.API_CONFIG.BASE_URL) ? window.API_CONFIG.BASE_URL : '/api';

@@ -14,17 +14,66 @@ class GeminiVisionService:
     """Service for analyzing images using Google Gemini Vision API"""
     
     def __init__(self):
+        self._setup()
+        
+    def _setup(self):
         api_key = os.getenv("GEMINI_API_KEY")
         
         if not api_key:
             logger.warning("Gemini API key not configured. Image analysis will be disabled.")
             self.enabled = False
+            self.model = None
             return
         
-        # Configure Gemini
-        genai.configure(api_key=api_key)
-        self.model = genai.GenerativeModel('gemini-1.5-flash')
-        self.enabled = True
+        try:
+            # Configure Gemini
+            genai.configure(api_key=api_key)
+            
+            # Dynamically find available models
+            logger.info("Discovering available Gemini models...")
+            available_models = []
+            try:
+                for model in genai.list_models():
+                    if 'generateContent' in model.supported_generation_methods:
+                        available_models.append(model.name)
+                        logger.debug(f"Found model: {model.name}")
+            except Exception as e:
+                logger.error(f"Failed to list models: {e}")
+            
+            if not available_models:
+                logger.error("No models available that support generateContent")
+                self.enabled = False
+                self.model = None
+                return
+            
+            # Try to use the first available model
+            self.model = None
+            for model_name in available_models:
+                try:
+                    self.model = genai.GenerativeModel(model_name)
+                    logger.info(f"✓ Gemini Vision Service initialized with model: {model_name}")
+                    break
+                except Exception as e:
+                    logger.warning(f"Failed to initialize model {model_name}: {e}")
+                    continue
+            
+            if self.model is None:
+                logger.error(f"Could not initialize any model. Available: {available_models}")
+                self.enabled = False
+                return
+                
+            self.enabled = True
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini: {e}", exc_info=True)
+            self.enabled = False
+            self.model = None
+
+    def _ensure_enabled(self):
+        """Try to re-enable if key is found later"""
+        if not self.enabled:
+            self._setup()
+        return self.enabled
         
         # Ocean hazard keywords for fallback
         self.ocean_keywords = {
@@ -68,7 +117,7 @@ class GeminiVisionService:
             - labels: List[str]
             - scene_description: str
         """
-        if not self.enabled:
+        if not self._ensure_enabled():
             logger.error("Gemini API not enabled")
             return self._get_fallback_result()
         

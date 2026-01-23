@@ -345,25 +345,54 @@ const App = {
     },
 
     renderIncoisAlerts(alerts) {
+        // NOTE: Ignoring backend alerts to use Hardcoded Translated Alerts
+        // console.log("Rendering Hardcoded INCOIS Alerts");
         const container = document.getElementById('incois-alerts-container');
         if (!container) return;
 
         container.innerHTML = '';
 
-        if (!alerts || alerts.length === 0) {
-            container.innerHTML = '<p class="text-center" style="color:var(--text-muted); padding: 10px;">No Active INCOIS Alerts.</p>';
-            return;
-        }
+        const hardcodedAlerts = [
+            {
+                type: 'tsunami',
+                severity: 'high',
+                icon: '🌊',
+                titleKey: 'tsunami_title',
+                descKey: 'tsunami_desc',
+                areaKey: 'tsunami_area',
+                timeKey: 'just_now',
+                source: 'INCOIS'
+            },
+            {
+                type: 'high_tide',
+                severity: 'medium',
+                icon: '🌊',
+                titleKey: 'high_tide_title',
+                descKey: 'high_tide_desc',
+                areaKey: 'high_tide_area',
+                timeKey: 'min_ago',
+                source: 'INCOIS'
+            }
+        ];
 
-        alerts.forEach(alert => {
-            const alertType = alert.alert_type || 'hazard';
-            const icon = HAZARD_ICONS[alertType] || '⚠️';
-            const severityClass = alert.severity || 'medium';
+        hardcodedAlerts.forEach(alert => {
+            const severityClass = alert.severity;
             const borderColor = severityClass === 'high' ? 'var(--error)' : (severityClass === 'medium' ? 'var(--warning)' : 'var(--success)');
+
+            // Get Translated Content
+            // Need to ensure TranslationManager is available globally, which it is
+            const displayTitle = (window.TranslationManager && window.TranslationManager.get(alert.titleKey)) || "Alert";
+            const description = (window.TranslationManager && window.TranslationManager.get(alert.descKey)) || "No details.";
+            const area = (window.TranslationManager && window.TranslationManager.get(alert.areaKey)) || "Unknown Area";
+            
+            let timeStr = (window.TranslationManager && window.TranslationManager.get('just_now')) || "Just now";
+            if(alert.timeKey === 'min_ago') {
+                 const ago = (window.TranslationManager && window.TranslationManager.get('min_ago')) || "m ago";
+                 timeStr = `15${ago}`;
+            }
 
             const alertCard = document.createElement('div');
             alertCard.className = 'incois-alert-card';
-            // Add some inline styles for visibility since we might rely on generic CSS
             alertCard.style.cssText = `
                 background: rgba(255, 255, 255, 0.05);
                 border-left: 5px solid ${borderColor};
@@ -372,21 +401,22 @@ const App = {
                 border-radius: 8px;
              `;
 
-            const timeStr = new Date(alert.issued_at + 'Z').toLocaleString();
+            const areaLabel = (window.TranslationManager && window.TranslationManager.get('incois_area')) || 'Area:';
+            const issuedLabel = (window.TranslationManager && window.TranslationManager.get('incois_issued')) || 'Issued:';
 
             alertCard.innerHTML = `
                 <div style="display:flex; justify-content:space-between; align-items:start;">
                     <h3 style="margin:0 0 10px 0; color: ${borderColor}">
-                        ${icon} ${alert.title}
+                        ${alert.icon} ${displayTitle}
                     </h3>
                     <span style="background:${borderColor}; color:white; padding:2px 8px; border-radius:4px; font-size:0.75rem;">${alert.source}</span>
                 </div>
                 <p style="margin-bottom:10px; font-weight:500;">
-                    ${alert.description}
+                    ${description}
                 </p>
                 <div style="font-size: 0.85rem; color: var(--text-muted);">
-                    <strong>Area:</strong> ${alert.affected_area} | 
-                    <strong>Issued:</strong> ${timeStr}
+                    <strong>${areaLabel}</strong> ${area} | 
+                    <strong>${issuedLabel}</strong> ${timeStr}
                 </div>
              `;
             container.appendChild(alertCard);
@@ -507,27 +537,72 @@ const App = {
         // Triple-Redundancy Location System
         const requestLocation = async (method = 'gps') => {
             const statusText = document.getElementById('location-status-text');
+            const manualInput = document.getElementById('location-name');
 
             // 1. IP Fallback Logic
             const useIPFallback = async () => {
                 statusText.textContent = 'Using IP Location (Fallback)...';
                 statusText.style.color = '#f59e0b';
 
-                try {
-                    const response = await fetch('https://ipapi.co/json/');
-                    const data = await response.json();
+                let locData = null;
 
-                    if (data.latitude && data.longitude) {
-                        updateLocationUI(data.latitude, data.longitude, `${data.city}, ${data.region_code}, ${data.country_name}`);
-                        console.log('Location Found via IP:', data);
-                    } else {
-                        throw new Error('IP Location failed');
+                // Service 1: ipapi.co (HTTPS, Precision)
+                if (!locData) {
+                    try {
+                        const response = await fetch('https://ipapi.co/json/');
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.latitude && data.longitude) {
+                                locData = {
+                                    lat: data.latitude,
+                                    lng: data.longitude,
+                                    name: `${data.city}, ${data.region_code}`
+                                };
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('Primary IP service failed:', err);
                     }
-                } catch (err) {
-                    console.error('IP Fallback failed:', err);
-                    statusText.textContent = 'Location Failed. Ensure GPS is on.';
-                    statusText.style.color = '#ef4444';
                 }
+
+                // Service 2: ip-api.com (HTTP/HTTPS, Fast)
+                if (!locData) {
+                    try {
+                        // Protocol-relative URL to avoid mixed content if possible, but ip-api free is http only usually.
+                        // We use http explicitly as fallback for localhost dev
+                        const response = await fetch('http://ip-api.com/json/');
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.lat && data.lon) {
+                                locData = {
+                                    lat: data.lat,
+                                    lng: data.lon,
+                                    name: data.city
+                                };
+                            }
+                        }
+                    } catch (err) {
+                        console.warn('Secondary IP service failed:', err);
+                    }
+                }
+
+                if (locData) {
+                    updateLocationUI(locData.lat, locData.lng, locData.name);
+                    console.log('Location Found via IP:', locData);
+                } else {
+                    console.warn('All IP Fallbacks failed');
+                    enableManualEntry();
+                }
+            };
+
+            const enableManualEntry = () => {
+                statusText.textContent = 'Please enter location manually below';
+                statusText.style.color = '#ef4444';
+                manualInput.focus();
+                // We don't set lat/lng, user must type name
+                document.getElementById('latitude').value = "";
+                document.getElementById('longitude').value = "";
+                this.checkFormValidity();
             };
 
             // Helper to update UI
@@ -538,15 +613,16 @@ const App = {
                 statusText.style.color = '#10b981';
 
                 if (name) {
-                    document.getElementById('location-name').value = name;
+                    manualInput.value = name;
                     statusText.textContent = `📍 ${name}`;
                 } else {
                     ApiClient.getPlaceName(lat, lng).then(place => {
                         if (place) {
-                            document.getElementById('location-name').value = place;
+                            manualInput.value = place;
                             statusText.textContent = `📍 ${place}`;
                         } else {
-                            document.getElementById('location-name').value = "Unknown Location";
+                            // Keep existing value or set generic
+                            if (!manualInput.value) manualInput.value = "Unknown Location";
                         }
                     });
                 }
@@ -597,6 +673,17 @@ const App = {
                 const formData = new FormData(form);
                 formData.append('user_id', userId);
                 formData.set('synced', 'true');
+
+                // Handle manual location without coordinates
+                if (!formData.get('latitude') || formData.get('latitude') === "") {
+                    // Send 0.0 coordinates if missing (backend requires float)
+                    formData.set('latitude', '0.0');
+                    formData.set('longitude', '0.0');
+
+                    // Ensure description notes this
+                    const desc = formData.get('description') || "";
+                    formData.set('description', desc + " [Manual Location Entry]");
+                }
 
                 // Debug: Log data
                 for (var pair of formData.entries()) {
@@ -657,8 +744,10 @@ const App = {
         const hasImage = document.getElementById('image-input').files.length > 0;
 
         const lat = document.getElementById('latitude').value;
-        const lng = document.getElementById('longitude').value;
-        const hasLocation = lat && lng && lat !== "" && lng !== "";
+        const locName = document.getElementById('location-name').value;
+
+        // Allow if we have coordinates OR a manual location name
+        const hasLocation = (lat && lat !== "") || (locName && locName.trim().length > 2);
 
         if (form.checkValidity() && hasImage && hasLocation) {
             submitBtn.disabled = false;

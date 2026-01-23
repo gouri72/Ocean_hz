@@ -1,0 +1,13 @@
+{
+  "ocean_related": false,
+  "hazard_detected": false,
+  "detected_hazard_type": null,
+  "confidence_score": 1.0,
+  "labels": [],
+  "objects": [],
+  "web_entities": [],
+  "scene_description": "An anime character with long orange hair and a blue top, adorned with pearl-like accessories, against a plain black background. The character appears to be Nami from One Piece.",
+  "all_elements": [],
+  "reasoning": "The image displays an anime character and contains no visual evidence of ocean hazards such as tsunami, cyclone/hurricane, high tide/storm surge, rough seas, flooding, heavy rain, or storm damage. It is an image unrelated to water/weather events as per the validation rules.",
+  "gemini_raw_response": "{\n    \"ocean_related\": false,\n    \"hazard_detected\": false,\n    \"hazard_type\": \"none\",\n    \"confidence\": 1.0,\n    \"detected_elements\": [],\n    \"scene_description\": \"An anime character with long orange hair and a blue top, adorned with pearl-like accessories, against a plain black background. The character appears to be Nami from One Piece.\",\n    \"reasoning\": \"The image displays an anime character and contains no visual evidence of ocean hazards such as tsunami, cyclone/hurricane, high tide/storm"
+}
