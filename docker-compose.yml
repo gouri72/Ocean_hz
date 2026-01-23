@@ -27,6 +27,9 @@ services:
     container_name: ocean_hazard_frontend
     ports:
       - "8080:80"
+    environment:
+      - PORT=80
+      - BACKEND_URL=http://backend:8000
     volumes:
       - ./frontend:/usr/share/nginx/html:ro
     depends_on:
