@@ -116,7 +116,15 @@ const AdminApp = {
                         </p>
                         
                         <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 0.9rem; border: 1px solid var(--border);">
-                            <strong>🤖 AI Analysis:</strong> Confidence ${(post.ai_confidence * 100).toFixed(1)}%
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                                <strong>🤖 AI Analysis:</strong>
+                                <span style="font-weight: bold; color: ${(post.ai_confidence * 100) >= 70 ? 'var(--success)' : (post.ai_confidence * 100) >= 50 ? 'var(--warning)' : 'var(--error)'};">
+                                    ${(post.ai_confidence * 100).toFixed(1)}%
+                                </span>
+                            </div>
+                            <div style="width: 100%; height: 8px; background: rgba(0,0,0,0.3); border-radius: 4px; overflow: hidden;">
+                                <div style="width: ${(post.ai_confidence * 100) || 0}%; height: 100%; background: ${(post.ai_confidence * 100) >= 70 ? 'var(--success)' : (post.ai_confidence * 100) >= 50 ? 'var(--warning)' : 'var(--error)'}; transition: width 0.3s;"></div>
+                            </div>
                         </div>
                         
                         <div style="margin-top: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px; font-size: 0.9rem; border: 1px solid ${post.ai_relevance_score < 50 ? 'var(--error)' : 'var(--border)'};">

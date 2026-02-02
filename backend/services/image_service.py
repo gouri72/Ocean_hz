@@ -17,9 +17,25 @@ class ImageProcessingService:
         os.makedirs(self.upload_dir, exist_ok=True)
         os.makedirs(self.watermarked_dir, exist_ok=True)
         
-        # BLIP model removed to save memory on deployment
+        # Load BLIP model for image-text matching
         self.processor = None
         self.model = None
+        try:
+            logger.info("Loading BLIP model for image relevance validation...")
+            from transformers import BlipProcessor, BlipForImageTextRetrieval
+            import torch
+            
+            self.processor = BlipProcessor.from_pretrained("Salesforce/blip-itm-base-coco")
+            self.model = BlipForImageTextRetrieval.from_pretrained("Salesforce/blip-itm-base-coco")
+            self.device = "cuda" if torch.cuda.is_available() else "cpu"
+            self.model.to(self.device)
+            self.model.eval()
+            
+            logger.info(f"BLIP model loaded successfully on {self.device}")
+        except Exception as e:
+            logger.warning(f"Failed to load BLIP model: {e}. Image relevance validation will be skipped.")
+            self.processor = None
+            self.model = None
     
     async def add_watermark(
         self, 
@@ -166,14 +182,81 @@ class ImageProcessingService:
 
     async def validate_image_relevance(self, image_path: str, target_tag: str) -> float:
         """
-        Stub for relevance validation validation.
-        The actual heavy lifting is done by Gemini (VisionService).
-        BLIP model was removed to save memory.
+        Validate image relevance using BLIP Image-Text Matching model.
+        
+        Args:
+            image_path: Path to the image file
+            target_tag: Target text to match (e.g., "tsunami ocean hazard")
+            
+        Returns:
+            Relevance score as percentage (0-100)
         """
-        logger.info(f"Skipping BLIP relevance check for: {image_path} (Lightweight verification)")
-        # Return -1 or 0 to indicate skipped/not performed, or 100 if we trust the user.
-        # Since Gemini does the real validation, this secondary check is optional.
-        return 0.0
+        if self.processor is None or self.model is None:
+            logger.warning("BLIP model not loaded, skipping relevance validation")
+            return 0.0
+        
+        try:
+            import torch
+            from PIL import Image as PILImage
+            import asyncio
+            from concurrent.futures import ThreadPoolExecutor
+            
+            def _run_blip_inference():
+                """Run BLIP inference in a separate thread to avoid blocking"""
+                try:
+                    # Load and process image
+                    image = PILImage.open(image_path).convert('RGB')
+                    
+                    # Generate prompt variations to find best match
+                    # BLIP often prefers "a photo of..." style prompts
+                    prompts = [
+                        target_tag,
+                        f"a photo of {target_tag}",
+                        f"an image showing {target_tag}",
+                        f"{target_tag} in the ocean",
+                        "disaster scene" # Baseline check
+                    ]
+                    
+                    max_score = 0.0
+                    
+                    # Batch process prompts if possible, or loop
+                    # Processing one by one for simplicity and strict pairing
+                    
+                    for text in prompts:
+                        inputs = self.processor(
+                            images=image,
+                            text=text,
+                            return_tensors="pt"
+                        ).to(self.device)
+                        
+                        with torch.no_grad():
+                            outputs = self.model(**inputs)
+                            itm_score = outputs.itm_score
+                            probs = torch.nn.functional.softmax(itm_score, dim=1)
+                            match_prob = probs[0][1].item()
+                            
+                            if match_prob > max_score:
+                                max_score = match_prob
+                                
+                    return max_score * 100
+                    
+                except Exception as e:
+                    logger.error(f"BLIP inference error: {e}")
+                    return 0.0
+                    logger.error(f"BLIP inference error: {e}")
+                    return 0.0
+            
+            # Run in thread pool to avoid blocking async event loop
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor() as executor:
+                relevance_score = await loop.run_in_executor(executor, _run_blip_inference)
+            
+            logger.info(f"BLIP relevance score: {relevance_score:.2f}% for '{target_tag}'")
+            return relevance_score
+            
+        except Exception as e:
+            logger.error(f"BLIP validation failed: {str(e)}")
+            return 0.0
 
 # Singleton instance
 image_service = ImageProcessingService()

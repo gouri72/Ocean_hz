@@ -206,10 +206,11 @@ async def create_hazard_post(
             os.remove(image_path)
             raise HTTPException(status_code=400, detail="Invalid image file or format")
         
-        # Add watermark (Fast operation)
-        watermarked_path = await image_service.add_watermark(
-            image_path, location_name or "Unknown", latitude, longitude, timestamp
-        )
+        # Watermark disabled by user request
+        watermarked_path = image_path 
+        # await image_service.add_watermark(
+        #    image_path, location_name or "Unknown", latitude, longitude, timestamp
+        # )
         
         # Create post record with initial state
         post = HazardPost(
@@ -565,14 +566,15 @@ async def sync_offline_post(
         with open(fs_image_path, "wb") as f:
             f.write(image_data)
         
-        # Add watermark (same as online posts)
-        watermarked_path = await image_service.add_watermark(
-            fs_image_path, 
-            sync_data.location_name or "Unknown", 
-            sync_data.latitude, 
-            sync_data.longitude, 
-            timestamp
-        )
+        # Watermark disabled by user request
+        watermarked_path = image_path
+        # watermarked_path = await image_service.add_watermark(
+        #     fs_image_path, 
+        #     sync_data.location_name or "Unknown", 
+        #     sync_data.latitude, 
+        #     sync_data.longitude, 
+        #     timestamp
+        # )
         
         # Create post (similar to create_hazard_post but from offline data)
         post = HazardPost(

@@ -62,11 +62,24 @@ async def process_post_background(post_id: int):
             
             # Relevance Score using BLIP
             try:
-                # Construct target tag for BLIP
-                target_tag = f"{post.hazard_type.replace('_', ' ')} ocean hazard"
-                relevance_score = await image_service.validate_image_relevance(post.image_path, target_tag)
+                # Construct descriptive target tag for better BLIP matching
+                hazard_prompts = {
+                    "cyclone": "storm with heavy rain, wind, and rough ocean waves",
+                    "tsunami": "massive ocean waves, flooding, and destruction",
+                    "high_tide": "high water level, overflowing sea, and storm surge",
+                    "wildfire": "fire and smoke near coast",
+                    "oil_spill": "oil spill in water",
+                    "marine_debris": "trash and debris in ocean",
+                    "coastal_erosion": "eroded beach and coastline"
+                }
+                
+                # Get specific prompt or fall back to generic
+                base_tag = hazard_prompts.get(post.hazard_type, f"{post.hazard_type.replace('_', ' ')} ocean hazard")
+                
+                # Usage: image_service will automatically add variations like "a photo of..."
+                relevance_score = await image_service.validate_image_relevance(post.image_path, base_tag)
                 post.ai_relevance_score = relevance_score
-                logger.info(f"BLIP Relevance Score: {relevance_score}% for tag '{target_tag}'")
+                logger.info(f"BLIP Relevance Score: {relevance_score}% for tag '{base_tag}'")
             except Exception as e:
                 logger.error(f"BLIP validation failed: {e}")
                 post.ai_relevance_score = 0.0

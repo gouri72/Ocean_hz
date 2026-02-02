@@ -696,24 +696,36 @@ const App = {
                         try {
                             const result = await ApiClient.submitReport(formData);
                             this.showToast(result.message || 'Report submitted successfully!', result.rejected ? 'error' : 'success');
+
+                            // Refresh content immediately
+                            this.loadDashboard();
+                            if (window.MapManager) window.MapManager.loadMapData();
                         } catch (apiError) {
                             console.warn('Online submission failed:', apiError);
-                            // If it's a server error (e.g. 400 Bad Request), don't save offline.
-                            if (apiError.message && (apiError.message.includes('400') || apiError.message.includes('422'))) {
+
+                            // CRITICAL FIX: Only fallback to offline if it's actually a network error.
+                            // "Failed to fetch" is the standard error message for network issues.
+                            // Server errors (4xx, 5xx) are NOT network errors and should be shown to the user.
+                            const isNetworkError = apiError.message.includes('Failed to fetch') ||
+                                apiError.message.includes('Network request failed');
+
+                            if (isNetworkError) {
+                                throw new Error('NetworkFallback');
+                            } else {
+                                // It's a server error (4xx, 5xx) or logic error. Show it to the user.
                                 throw apiError;
                             }
-                            // Otherwise assume network/server outage
-                            throw new Error('NetworkFallback');
                         }
                     } else {
                         throw new Error('Offline');
                     }
                 } catch (err) {
-                    if (err.message === 'NetworkFallback' || err.message === 'Offline' || err.message.includes('Failed to fetch')) {
+                    if (err.message === 'NetworkFallback' || err.message === 'Offline') {
                         await OfflineManager.saveReportOffline(formData);
                         this.showToast('Saved offline. Will sync automatically.', 'info');
                     } else {
-                        throw err; // Re-throw validation errors
+                        // Re-throw to show error toast (handled by outer catch)
+                        throw err;
                     }
                 }
 

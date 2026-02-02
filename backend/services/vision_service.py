@@ -26,8 +26,8 @@ class GeminiVisionService:
             return
         
         try:
-            # Configure Gemini
-            genai.configure(api_key=api_key)
+            # Configure Gemini (Force REST transport to avoid gRPC 503 errors in Docker)
+            genai.configure(api_key=api_key, transport="rest")
             
             # Dynamically find available models
             logger.info("Discovering available Gemini models...")
@@ -160,10 +160,29 @@ Respond ONLY with this JSON format (no other text):
 }"""
 
             # Upload image and generate content with correct MIME type
-            response = self.model.generate_content([
-                prompt, 
-                {"mime_type": mime_type, "data": image_data}
-            ])
+            # Add retry logic for transient network issues (especially after offline sync)
+            max_retries = 3
+            retry_delay = 2  # seconds
+            import time
+            
+            response = None
+            last_error = None
+            
+            for attempt in range(max_retries):
+                try:
+                    response = self.model.generate_content([
+                        prompt, 
+                        {"mime_type": mime_type, "data": image_data}
+                    ])
+                    break # Success
+                except Exception as e:
+                    last_error = e
+                    logger.warning(f"Gemini attempt {attempt+1}/{max_retries} failed: {e}")
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+            
+            if response is None:
+                raise last_error or Exception("Failed to get response after retries")
             
             # Parse response
             response_text = response.text.strip()

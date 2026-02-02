@@ -8,7 +8,7 @@ pillow>=10.2.0
 python-dotenv==1.0.0
 
 # Google Gemini Vision API
-google-generativeai==0.3.2
+google-generativeai>=0.5.0
 
 # Twilio SMS
 twilio==8.11.1
@@ -24,7 +24,7 @@ aiofiles==23.2.1
 alembic==1.13.1
 
 # Image Processing
-# ML/AI (Memory-light deployment)
-# torch and transformers removed to prevent OOM on Railway
-# Using Google Gemini API instead
+# ML/AI - BLIP Model for Image-Text Matching
+torch>=2.0.0
+transformers>=4.30.0
 
