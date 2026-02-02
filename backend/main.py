@@ -88,13 +88,13 @@ async def shutdown_event():
 
 
 # Health check
-@app.get("/")
-async def root():
-    return {
-        "app": "Ocean Hazard Live Reporting System",
-        "status": "running",
-        "version": "1.0.0"
-    }
+# @app.get("/")
+# async def root():
+#     return {
+#         "app": "Ocean Hazard Live Reporting System",
+#         "status": "running",
+#         "version": "1.0.0"
+#     }
 
 
 @app.get("/health")
@@ -899,6 +899,27 @@ def resolve_sos_report(sos_id: int, db: Session = Depends(get_db)):
     
     db.commit()
     return {"message": "SOS report resolved"}
+
+
+
+# ==================== FRONTEND STATIC SERVING ====================
+
+# Mount frontend directory to serve static files (HTML, JS, CSS)
+# This allows Railway to deploy a single container with both Backend and Frontend
+try:
+    # Determine path to frontend directory (sibling to backend directory)
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    frontend_path = os.path.join(os.path.dirname(current_dir), 'frontend')
+
+    if os.path.exists(frontend_path):
+        # Mount the frontend directory
+        # 'html=True' allows serving index.html automatically for root path
+        app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
+        logger.info(f"Frontend successfully mounted from {frontend_path}")
+    else:
+        logger.warning(f"Frontend directory not found at {frontend_path}. Static files will not be served.")
+except Exception as e:
+    logger.error(f"Error mounting frontend: {str(e)}")
 
 
 if __name__ == "__main__":

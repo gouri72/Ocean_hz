@@ -6,16 +6,24 @@ const OfflineManager = {
 
     init() {
         this.statusElement = document.getElementById('network-status');
-        this.statusText = document.querySelector('.status-text');
+        if (this.statusElement) {
+            this.statusText = this.statusElement.querySelector('.status-text');
+        } else {
+            console.warn('Network status element not found');
+        }
 
-        window.addEventListener('online', () => this.updateStatus(true));
+        // Event Listeners for Network Change
+        window.addEventListener('online', () => this.checkServerConnection());
         window.addEventListener('offline', () => this.updateStatus(false));
 
         // Open Database
         this.openDB();
 
         // Initial check
-        this.updateStatus(navigator.onLine);
+        this.checkServerConnection();
+
+        // Periodic Check (every 10 seconds) to detect if server went down despite network being "online"
+        setInterval(() => this.checkServerConnection(), 10000);
     },
 
     openDB() {
@@ -55,21 +63,72 @@ const OfflineManager = {
         });
     },
 
+    async checkServerConnection() {
+        if (!navigator.onLine) {
+            this.updateStatus(false);
+            return;
+        }
+
+        try {
+            // Determine root URL by stripping '/api' from the configured BASE_URL
+            let baseUrl = (window.API_CONFIG && window.API_CONFIG.BASE_URL) ? window.API_CONFIG.BASE_URL : '/api';
+            if (baseUrl.endsWith('/api')) {
+                baseUrl = baseUrl.slice(0, -4); // Remove trailing '/api'
+            }
+            if (baseUrl.endsWith('/')) {
+                baseUrl = baseUrl.slice(0, -1); // Remove trailing slash if present
+            }
+
+            // Should result in 'http://localhost:8000' or '' (empty string for relative root)
+            const healthUrl = `${baseUrl}/health`;
+
+            // Using a short timeout to fail fast
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+            const response = await fetch(healthUrl, {
+                method: 'GET',
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+                this.updateStatus(true);
+            } else {
+                // If we get a response but it's not OK (e.g. 500), we are technically "online" but server is broken.
+                // Depending on requirement, we might still want to show "Online" if strictly talking about network,
+                // but "Offline" is safer for app functionality. 
+                // However, given the USER request "online and offline as per the user's network", 
+                // if we get a response (even 404/500), we ARE online.
+                this.updateStatus(true);
+            }
+        } catch (err) {
+            // Fetch failed (network error, timeout)
+            // This is the only true "Offline" state for the app context
+            this.updateStatus(false);
+        }
+    },
+
     updateStatus(isOnline) {
         if (!this.statusElement) return;
 
         if (isOnline) {
+            if (this.statusElement.classList.contains('online')) return; // Already online
+
             this.statusElement.classList.remove('offline');
             this.statusElement.classList.add('online');
-            this.statusText.textContent = 'Online';
+            if (this.statusText) this.statusText.textContent = 'Online';
+
             if (this.db) {
                 this.syncPendingReports();
                 this.syncPendingSOS();
             }
         } else {
+            if (this.statusElement.classList.contains('offline')) return; // Already offline
+
             this.statusElement.classList.remove('online');
             this.statusElement.classList.add('offline');
-            this.statusText.textContent = 'Offline';
+            if (this.statusText) this.statusText.textContent = 'Offline';
         }
     },
 
