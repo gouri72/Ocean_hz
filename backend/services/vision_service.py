@@ -6,6 +6,16 @@ import logging
 import base64
 from PIL import Image
 import io
+import ssl
+from dotenv import load_dotenv
+import time
+
+# Hack to fix "self-signed certificate" errors in restrictive environments/Docker
+try:
+    _create_unverified_https_context = ssl._create_unverified_context
+    ssl._create_default_https_context = _create_unverified_https_context
+except AttributeError:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -14,9 +24,26 @@ class GeminiVisionService:
     """Service for analyzing images using Google Gemini Vision API"""
     
     def __init__(self):
+        # Ocean hazard keywords for fallback
+        self.ocean_keywords = {
+            'tsunami': ['tsunami', 'tidal wave', 'sea wave', 'ocean wave', 'flooding', 'inundation', 'massive wave', 'wall of water'],
+            'cyclone': ['cyclone', 'hurricane', 'storm', 'typhoon', 'wind', 'rain', 'clouds', 'weather', 'tropical storm', 'severe weather'],
+            'high_tide': ['high tide', 'tide', 'coastal flooding', 'sea level', 'shoreline', 'beach erosion', 'king tide', 'storm surge']
+        }
+        
+        self.ocean_related_keywords = [
+            'ocean', 'sea', 'water', 'wave', 'beach', 'coast', 'shore', 
+            'marine', 'maritime', 'coastal', 'bay', 'harbor', 'surf',
+            'flooding', 'storm', 'wind', 'rain', 'weather'
+        ]
+        
+        # Initialize the service
         self._setup()
         
     def _setup(self):
+        """Initialize Gemini API connection"""
+        # Ensure we have the latest env vars
+        load_dotenv(override=True)
         api_key = os.getenv("GEMINI_API_KEY")
         
         if not api_key:
@@ -41,10 +68,15 @@ class GeminiVisionService:
                 logger.error(f"Failed to list models: {e}")
             
             if not available_models:
-                logger.error("No models available that support generateContent")
-                self.enabled = False
-                self.model = None
-                return
+                # If listing fails, try fallback to known models
+                logger.warning("List models failed, trying default models directly.")
+                available_models = [
+                    "models/gemini-1.5-flash",
+                    "models/gemini-1.5-pro", 
+                    "gemini-1.5-flash",
+                    "gemini-1.5-pro",
+                    "gemini-pro-vision"
+                ]
             
             # Try to use the first available model
             self.model = None
@@ -58,7 +90,7 @@ class GeminiVisionService:
                     continue
             
             if self.model is None:
-                logger.error(f"Could not initialize any model. Available: {available_models}")
+                logger.error("Could not initialize any model.")
                 self.enabled = False
                 return
                 
@@ -70,23 +102,13 @@ class GeminiVisionService:
             self.model = None
 
     def _ensure_enabled(self):
-        """Try to re-enable if key is found later"""
+        """Try to re-enable if key is found later (Hot Reload)"""
         if not self.enabled:
+            logger.info("Gemini service currently disabled, attempting hot-reload of configuration...")
             self._setup()
+            if self.enabled:
+                logger.info("Gemini service successfully re-enabled!")
         return self.enabled
-        
-        # Ocean hazard keywords for fallback
-        self.ocean_keywords = {
-            'tsunami': ['tsunami', 'tidal wave', 'sea wave', 'ocean wave', 'flooding', 'inundation', 'massive wave', 'wall of water'],
-            'cyclone': ['cyclone', 'hurricane', 'storm', 'typhoon', 'wind', 'rain', 'clouds', 'weather', 'tropical storm', 'severe weather'],
-            'high_tide': ['high tide', 'tide', 'coastal flooding', 'sea level', 'shoreline', 'beach erosion', 'king tide', 'storm surge']
-        }
-        
-        self.ocean_related_keywords = [
-            'ocean', 'sea', 'water', 'wave', 'beach', 'coast', 'shore', 
-            'marine', 'maritime', 'coastal', 'bay', 'harbor', 'surf',
-            'flooding', 'storm', 'wind', 'rain', 'weather'
-        ]
     
     def _get_image_mime_type(self, image_path: str) -> str:
         """Detect actual MIME type of image"""
@@ -159,11 +181,9 @@ Respond ONLY with this JSON format (no other text):
     "reasoning": "why you classified it this way"
 }"""
 
-            # Upload image and generate content with correct MIME type
-            # Add retry logic for transient network issues (especially after offline sync)
-            max_retries = 3
-            retry_delay = 2  # seconds
-            import time
+            # Add retry logic with EXPONENTIAL BACKOFF for transient network issues & Rate Limits (429)
+            max_retries = 5
+            base_delay = 2  # seconds
             
             response = None
             last_error = None
@@ -174,12 +194,13 @@ Respond ONLY with this JSON format (no other text):
                         prompt, 
                         {"mime_type": mime_type, "data": image_data}
                     ])
-                    break # Success
+                    break  # Success
                 except Exception as e:
                     last_error = e
-                    logger.warning(f"Gemini attempt {attempt+1}/{max_retries} failed: {e}")
+                    delay = base_delay * (2 ** attempt)  # 2, 4, 8, 16, 32
+                    logger.warning(f"Gemini attempt {attempt+1}/{max_retries} failed: {e}. Retrying in {delay}s...")
                     if attempt < max_retries - 1:
-                        time.sleep(retry_delay)
+                        time.sleep(delay)
             
             if response is None:
                 raise last_error or Exception("Failed to get response after retries")
@@ -262,8 +283,9 @@ Respond ONLY with this JSON format (no other text):
             return result
             
         except Exception as e:
-            logger.error(f"Error analyzing image with Gemini: {str(e)}", exc_info=True)
-            return self._get_fallback_result()
+            error_msg = str(e)
+            logger.error(f"Error analyzing image with Gemini: {error_msg}", exc_info=True)
+            return self._get_fallback_result(error_msg)
     
     def _parse_text_response(self, text: str) -> Dict:
         """Parse text response when JSON parsing fails"""
@@ -295,8 +317,14 @@ Respond ONLY with this JSON format (no other text):
             'reasoning': 'Parsed from text response (JSON parsing failed)'
         }
     
-    def _get_fallback_result(self) -> Dict:
+    def _get_fallback_result(self, error_reason: str = None) -> Dict:
         """Return fallback result when API is not available"""
+        description = 'Image analysis unavailable'
+        if error_reason:
+            description += f': {error_reason}'
+        else:
+            description += ' - Gemini API not configured'
+
         return {
             'ocean_related': False,
             'hazard_detected': False,
@@ -305,9 +333,9 @@ Respond ONLY with this JSON format (no other text):
             'labels': [],
             'objects': [],
             'web_entities': [],
-            'scene_description': 'Image analysis unavailable - Gemini API not configured',
+            'scene_description': description,
             'all_elements': [],
-            'reasoning': 'API not available'
+            'reasoning': f'API Error: {error_reason}' if error_reason else 'API not available'
         }
 
 

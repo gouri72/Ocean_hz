@@ -4,12 +4,14 @@ const OfflineManager = {
     dbVersion: 2,
     db: null,
 
+    isOnline: navigator.onLine, // Default to navigator status
+    version: '4.0 (Fix)',
+
     init() {
+        console.log(`[OfflineManager] Initializing v${this.version}`);
         this.statusElement = document.getElementById('network-status');
         if (this.statusElement) {
             this.statusText = this.statusElement.querySelector('.status-text');
-        } else {
-            console.warn('Network status element not found');
         }
 
         // Event Listeners for Network Change
@@ -22,8 +24,8 @@ const OfflineManager = {
         // Initial check
         this.checkServerConnection();
 
-        // Periodic Check (every 10 seconds) to detect if server went down despite network being "online"
-        setInterval(() => this.checkServerConnection(), 10000);
+        // Periodic Check (every 5 seconds - faster detection)
+        setInterval(() => this.checkServerConnection(), 5000);
     },
 
     openDB() {
@@ -50,7 +52,7 @@ const OfflineManager = {
                 this.db = event.target.result;
                 resolve(this.db);
                 // Try sync on init if online
-                if (navigator.onLine) {
+                if (this.isOnline) {
                     this.syncPendingReports();
                     this.syncPendingSOS();
                 }
@@ -80,7 +82,8 @@ const OfflineManager = {
             }
 
             // Should result in 'http://localhost:8000' or '' (empty string for relative root)
-            const healthUrl = `${baseUrl}/health`;
+            // Add timestamp to prevent browser/proxy caching
+            const healthUrl = `${baseUrl}/health?t=${Date.now()}`;
 
             // Using a short timeout to fail fast
             const controller = new AbortController();
@@ -88,6 +91,7 @@ const OfflineManager = {
 
             const response = await fetch(healthUrl, {
                 method: 'GET',
+                cache: 'no-store', // Ensure we don't get a cached 200 OK
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
@@ -95,21 +99,21 @@ const OfflineManager = {
             if (response.ok) {
                 this.updateStatus(true);
             } else {
-                // If we get a response but it's not OK (e.g. 500), we are technically "online" but server is broken.
-                // Depending on requirement, we might still want to show "Online" if strictly talking about network,
-                // but "Offline" is safer for app functionality. 
-                // However, given the USER request "online and offline as per the user's network", 
-                // if we get a response (even 404/500), we ARE online.
+                // Return acceptable responses even if not 200 OK, as strictly speaking we are "connected"
+                // But for app functionality, we consider it online if we got a response.
                 this.updateStatus(true);
             }
         } catch (err) {
             // Fetch failed (network error, timeout)
             // This is the only true "Offline" state for the app context
+            console.log("Server ping failed, switching to offline mode");
             this.updateStatus(false);
         }
     },
 
     updateStatus(isOnline) {
+        this.isOnline = isOnline; // Update state property
+
         if (!this.statusElement) return;
 
         if (isOnline) {

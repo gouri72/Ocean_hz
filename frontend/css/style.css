@@ -260,46 +260,7 @@ body {
     box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
 }
 
-/* Network Status */
-.network-status {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    padding: var(--spacing-xs) var(--spacing-md);
-    border-radius: var(--border-radius-sm);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-}
 
-.network-status.online {
-    background: rgba(16, 185, 129, 0.1);
-    color: var(--success);
-}
-
-.network-status.offline {
-    background: rgba(239, 68, 68, 0.1);
-    color: var(--danger);
-}
-
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: currentColor;
-    animation: pulse 2s ease-in-out infinite;
-}
-
-@keyframes pulse {
-
-    0%,
-    100% {
-        opacity: 1;
-    }
-
-    50% {
-        opacity: 0.5;
-    }
-}
 
 /* ==================== BOTTOM NAVIGATION ==================== */
 .bottom-nav {

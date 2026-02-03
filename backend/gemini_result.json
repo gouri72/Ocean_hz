@@ -1,13 +1,28 @@
 {
-  "ocean_related": false,
-  "hazard_detected": false,
-  "detected_hazard_type": null,
-  "confidence_score": 1.0,
-  "labels": [],
-  "objects": [],
+  "ocean_related": true,
+  "hazard_detected": true,
+  "detected_hazard_type": "tsunami",
+  "confidence_score": 0.95,
+  "labels": [
+    "massive wave",
+    "wall of water",
+    "ocean",
+    "beach"
+  ],
+  "objects": [
+    "massive wave",
+    "wall of water",
+    "ocean",
+    "beach"
+  ],
   "web_entities": [],
-  "scene_description": "An anime character with long orange hair and a blue top, adorned with pearl-like accessories, against a plain black background. The character appears to be Nami from One Piece.",
-  "all_elements": [],
-  "reasoning": "The image displays an anime character and contains no visual evidence of ocean hazards such as tsunami, cyclone/hurricane, high tide/storm surge, rough seas, flooding, heavy rain, or storm damage. It is an image unrelated to water/weather events as per the validation rules.",
-  "gemini_raw_response": "{\n    \"ocean_related\": false,\n    \"hazard_detected\": false,\n    \"hazard_type\": \"none\",\n    \"confidence\": 1.0,\n    \"detected_elements\": [],\n    \"scene_description\": \"An anime character with long orange hair and a blue top, adorned with pearl-like accessories, against a plain black background. The character appears to be Nami from One Piece.\",\n    \"reasoning\": \"The image displays an anime character and contains no visual evidence of ocean hazards such as tsunami, cyclone/hurricane, high tide/storm"
+  "scene_description": "A person stands on a beach with their arms outstretched, facing an extremely large, towering blue wave that resembles a massive wall of water about to break.",
+  "all_elements": [
+    "massive wave",
+    "wall of water",
+    "ocean",
+    "beach"
+  ],
+  "reasoning": "The image clearly depicts a colossal wave, appearing as a massive 'wall of water' dominating the scene. This scale and characteristic directly match the description for a TSUNAMI hazard: 'Massive waves, wall of water, unusual wave patterns'. The wave's height is disproportionate to typical ocean waves, indicating a significant and dangerous event.",
+  "gemini_raw_response": "{\n    \"ocean_related\": true,\n    \"hazard_detected\": true,\n    \"hazard_type\": \"tsunami\",\n    \"confidence\": 0.95,\n    \"detected_elements\": [\"massive wave\", \"wall of water\", \"ocean\", \"beach\"],\n    \"scene_description\": \"A person stands on a beach with their arms outstretched, facing an extremely large, towering blue wave that resembles a massive wall of water about to break.\",\n    \"reasoning\": \"The image clearly depicts a colossal wave, appearing as a massive 'wall of water' dominating the scene. Th"
 }

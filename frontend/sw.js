@@ -1,6 +1,6 @@
 // Service Worker for Ocean Hazard App
 
-const CACHE_NAME = 'ocean-hazard-v3';
+const CACHE_NAME = 'ocean-hazard-v4-fix';
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',

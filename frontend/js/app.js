@@ -692,7 +692,8 @@ const App = {
 
                 // Attempt Submission
                 try {
-                    if (navigator.onLine) {
+                    // Use OfflineManager's robust detection instead of just navigator.onLine
+                    if (OfflineManager.isOnline) {
                         try {
                             const result = await ApiClient.submitReport(formData);
                             this.showToast(result.message || 'Report submitted successfully!', result.rejected ? 'error' : 'success');
@@ -710,6 +711,8 @@ const App = {
                                 apiError.message.includes('Network request failed');
 
                             if (isNetworkError) {
+                                // If network request failed, we are definitely offline now. Update status immediately.
+                                OfflineManager.updateStatus(false);
                                 throw new Error('NetworkFallback');
                             } else {
                                 // It's a server error (4xx, 5xx) or logic error. Show it to the user.
